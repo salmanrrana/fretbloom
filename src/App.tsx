@@ -6,13 +6,13 @@ import { ListenMode } from './components/ListenMode'
 type Mode = 'play' | 'listen' | 'tune'
 
 const MODES: { id: Mode; label: string }[] = [
+  { id: 'tune', label: 'Tune' },
   { id: 'play', label: 'Play along' },
   { id: 'listen', label: 'Listen' },
-  { id: 'tune', label: 'Tune' },
 ]
 
 export default function App() {
-  const [mode, setMode] = useState<Mode>('play')
+  const [mode, setMode] = useState<Mode>('tune')
   const [glow, setGlow] = useState(false)
   const onGlow = useCallback((lit: boolean) => setGlow(lit), [])
 

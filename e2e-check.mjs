@@ -28,7 +28,12 @@ check((await page.title()) === 'Fretbloom', 'page title is Fretbloom')
 check(await page.locator('.wordmark').isVisible(), 'wordmark visible')
 check((await page.locator('.mode-btn').count()) === 3, 'three mode buttons')
 
+// --- tuner is the landing page ---
+check(await page.locator('.tuner-note').isVisible(), 'tuner is the first page shown')
+check((await page.locator('.mode-btn.active').innerText()) === 'Tune', 'Tune button active on load')
+
 // --- play mode ---
+await page.getByRole('button', { name: 'Play along' }).click()
 check(await page.locator('.chord-card.now .chord-name').isVisible(), 'current chord shown')
 check(await page.locator('.chord-card.next .chord-name').isVisible(), 'next chord shown')
 check((await page.locator('.chord-card .diagram').count()) === 2, 'two chord diagrams (now + next)')
