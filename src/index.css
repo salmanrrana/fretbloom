@@ -82,13 +82,14 @@ body {
 }
 
 .garden-muted {
-  filter: saturate(0.18) brightness(0.42) contrast(0.95);
+  /* resting state: dusk, not grey — color is still alive in the shadows */
+  filter: saturate(0.55) brightness(0.52) contrast(1.02);
 }
 
 .garden-color {
-  filter: saturate(1.15) brightness(0.72);
+  /* brighter than life: the reward state overshoots reality */
+  filter: saturate(1.45) brightness(0.95) contrast(1.04);
   opacity: 0;
-  clip-path: circle(6% at 50% 34%);
   transition: none; /* driven per-frame from the tuner */
 }
 
@@ -97,16 +98,16 @@ body {
 }
 
 @keyframes bloom-breathe {
-  0%, 100% { filter: saturate(1.15) brightness(0.72); }
-  50% { filter: saturate(1.35) brightness(0.82); }
+  0%, 100% { filter: saturate(1.45) brightness(0.95) contrast(1.04); }
+  50% { filter: saturate(1.7) brightness(1.08) contrast(1.06); }
 }
 
 .garden-vignette {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse at 50% 30%, transparent 30%, rgba(16, 20, 8, 0.55) 100%),
-    linear-gradient(to bottom, rgba(16, 20, 8, 0.5), transparent 22%, transparent 70%, rgba(16, 20, 8, 0.72));
+    radial-gradient(ellipse at 50% 32%, rgba(16, 20, 8, 0.32) 0%, transparent 45%, rgba(16, 20, 8, 0.4) 100%),
+    linear-gradient(to bottom, rgba(16, 20, 8, 0.45), transparent 25%, transparent 75%, rgba(16, 20, 8, 0.5));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -155,7 +156,18 @@ body {
   text-shadow: 0 1px 12px rgba(16, 20, 8, 0.9);
 }
 
-/* ---- greenhouse: the hidden door to the experiments ---- */
+/* ---- greenhouse: the hidden door, bottom-left corner ---- */
+
+.greenhouse-corner {
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
 
 .greenhouse {
   display: flex;
@@ -196,12 +208,12 @@ body {
 }
 
 .experiments {
-  margin-bottom: 20px;
   border: 1px dashed rgba(217, 106, 158, 0.4);
   border-radius: 16px;
   padding: 14px 18px;
-  background: rgba(16, 20, 8, 0.6);
-  backdrop-filter: blur(10px);
+  background: rgba(16, 20, 8, 0.82);
+  backdrop-filter: blur(12px);
+  max-width: min(340px, calc(100vw - 36px));
 }
 
 .experiments-note {
@@ -455,18 +467,45 @@ textarea:focus-visible {
   display: block;
 }
 
-/* ---- tuner: the heart ---- */
+/* ---- tuner: no card, no chrome — type living on the photograph ----
+   Legibility comes from text-shadow and a soft local scrim, not a panel. */
+
+.tuner-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 4vh 0 0;
+  min-height: 62vh;
+}
 
 .tuner-top {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 18px;
   flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 4vh;
 }
 
+/* the tuning picker reads as a line of text, not a form control */
 .tuner-tuning {
-  flex: 1;
-  min-width: 220px;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  color: var(--cream);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(244, 238, 223, 0.35);
+  border-radius: 0;
+  padding: 6px 2px;
+  cursor: pointer;
+  text-shadow: 0 1px 10px rgba(16, 20, 8, 0.9);
+}
+
+.tuner-tuning option {
+  background: var(--soil);
+  color: var(--cream);
 }
 
 .a4-label {
@@ -476,161 +515,164 @@ textarea:focus-visible {
   font-family: var(--font-mono);
   font-size: 0.8rem;
   color: var(--sage);
+  text-shadow: 0 1px 10px rgba(16, 20, 8, 0.9);
 }
 
 .a4-input {
-  width: 64px;
+  width: 56px;
   font-family: var(--font-mono);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--cream);
-  background: rgba(16, 20, 8, 0.8);
-  border: 1px solid var(--stem);
-  border-radius: 10px;
-  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(244, 238, 223, 0.35);
+  border-radius: 0;
+  padding: 6px 2px;
   text-align: center;
 }
 
-.tuner-face {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 20px 0 8px;
+/* Chrome's number spinners fight the naked look */
+.a4-input::-webkit-outer-spin-button,
+.a4-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.a4-input {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 .tuner-mode-line {
   font-family: var(--font-mono);
   font-size: 0.8rem;
-  color: var(--sage);
+  color: var(--cream);
+  opacity: 0.85;
   margin: 0;
   min-height: 1.4em;
+  text-shadow: 0 1px 10px rgba(16, 20, 8, 0.95);
 }
 
 .tuner-mode-line strong {
   color: var(--bougain);
+  font-weight: 700;
 }
 
+/* THE note — enormous, cream, floating on the flowers */
 .tuner-note {
   font-family: var(--font-display);
-  font-size: clamp(4rem, 14vw, 7rem);
-  font-weight: 780;
-  line-height: 1;
+  font-size: clamp(7rem, 26vw, 15rem);
+  font-weight: 800;
+  line-height: 0.95;
   margin: 0;
-  transition: color 0.3s ease, text-shadow 0.3s ease;
-  text-shadow: 0 4px 40px rgba(16, 20, 8, 0.8);
+  color: var(--cream);
+  transition: color 0.35s ease, text-shadow 0.35s ease, opacity 0.35s ease;
+  text-shadow:
+    0 2px 6px rgba(16, 20, 8, 0.85),
+    0 10px 60px rgba(16, 20, 8, 0.9);
+}
+
+.tuner-note.idle {
+  opacity: 0;
+  min-height: 0.95em; /* hold the layout while empty */
 }
 
 .tuner-note.in-tune {
-  color: var(--leaf);
-  text-shadow: 0 0 60px rgba(143, 201, 124, 0.55);
+  color: #fffdf4;
+  text-shadow:
+    0 2px 6px rgba(16, 20, 8, 0.6),
+    0 0 40px rgba(245, 166, 35, 0.55),
+    0 0 110px rgba(245, 166, 35, 0.4);
 }
 
 .tuner-octave {
-  font-size: 0.35em;
+  font-size: 0.28em;
   font-weight: 500;
-  color: var(--sage);
+  color: var(--cream);
+  opacity: 0.6;
   vertical-align: super;
-  margin-left: 0.1em;
-}
-
-.tuner-freq {
-  font-family: var(--font-mono);
-  color: var(--sage);
-  font-size: 0.95rem;
-  margin: 0;
-  min-height: 1.4em;
+  margin-left: 0.08em;
 }
 
 .tuner-direction {
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  font-weight: 550;
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--marigold);
-  margin: 0;
+  margin: 2px 0 0;
   min-height: 1.5em;
   transition: color 0.3s ease;
+  text-shadow: 0 1px 12px rgba(16, 20, 8, 0.95);
 }
 
 .tuner-direction.good {
   color: var(--leaf);
 }
 
+/* the horizon: a single line across most of the stage */
 .cents-scale {
-  width: min(420px, 90%);
+  width: min(640px, 92%);
   position: relative;
-  height: 54px;
+  height: 64px;
+  margin-top: 3vh;
 }
 
 .cents-line {
   position: absolute;
-  top: 26px;
+  top: 30px;
   left: 0;
   right: 0;
-  height: 2px;
-  background: rgba(168, 179, 148, 0.3);
-}
-
-.cents-tick {
-  position: absolute;
-  top: 22px;
-  width: 1px;
-  height: 10px;
-  background: rgba(168, 179, 148, 0.3);
-  transform: translateX(-50%);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(244, 238, 223, 0.55) 12%, rgba(244, 238, 223, 0.55) 88%, transparent);
 }
 
 .cents-center {
   position: absolute;
-  top: 14px;
+  top: 20px;
   left: 50%;
-  width: 2px;
-  height: 26px;
-  background: var(--sage);
+  width: 1px;
+  height: 21px;
+  background: rgba(244, 238, 223, 0.8);
   transform: translateX(-50%);
 }
 
+/* the needle is a stem of light growing out of the horizon */
 .cents-needle {
   position: absolute;
-  top: 8px;
+  top: 6px;
   left: 50%;
-  width: 4px;
-  height: 38px;
+  width: 3px;
+  height: 34px;
   border-radius: 2px;
   background: var(--marigold);
   transform: translateX(-50%);
-  transition: left 0.1s ease-out, background 0.3s ease, opacity 0.3s ease;
-  box-shadow: 0 0 12px rgba(245, 166, 35, 0.5);
+  transition: left 0.1s ease-out, background 0.3s ease, opacity 0.4s ease;
+  box-shadow: 0 0 16px rgba(245, 166, 35, 0.7);
 }
 
 .cents-needle.in-tune {
   background: var(--leaf);
-  box-shadow: 0 0 18px rgba(143, 201, 124, 0.8);
+  box-shadow: 0 0 22px rgba(143, 201, 124, 0.9);
 }
 
-.cents-labels {
-  position: absolute;
-  top: 38px;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--sage);
-}
-
+/* strobe: a whisper under the horizon, full width of the scale */
 .strobe-ribbon {
-  width: min(420px, 90%);
-  height: 18px;
-  border-radius: 9px;
-  border: 1px solid var(--stem);
+  position: absolute;
+  top: 44px;
+  left: 6%;
+  right: 6%;
+  height: 6px;
+  border-radius: 3px;
+  border: none;
   background-image: repeating-linear-gradient(
     90deg,
     transparent 0px,
-    transparent 14px,
-    color-mix(in srgb, var(--marigold) 55%, transparent) 14px,
-    color-mix(in srgb, var(--marigold) 55%, transparent) 28px
+    transparent 16px,
+    rgba(245, 166, 35, 0.5) 16px,
+    rgba(245, 166, 35, 0.5) 32px
   );
+  opacity: 0.15; /* whisper until the mic wakes it */
   transition: opacity 0.4s ease;
 }
 
@@ -638,101 +680,103 @@ textarea:focus-visible {
   background-image: repeating-linear-gradient(
     90deg,
     transparent 0px,
-    transparent 14px,
-    color-mix(in srgb, var(--leaf) 65%, transparent) 14px,
-    color-mix(in srgb, var(--leaf) 65%, transparent) 28px
+    transparent 16px,
+    rgba(143, 201, 124, 0.65) 16px,
+    rgba(143, 201, 124, 0.65) 32px
   );
-  box-shadow: 0 0 22px rgba(143, 201, 124, 0.25);
 }
 
+.tuner-freq {
+  font-family: var(--font-mono);
+  color: var(--cream);
+  opacity: 0.75;
+  font-size: 0.9rem;
+  margin: 0;
+  min-height: 1.4em;
+  text-shadow: 0 1px 10px rgba(16, 20, 8, 0.95);
+}
+
+/* six strings as a row of plain words; the dot is the bloom state */
 .tuner-strings {
   display: flex;
-  gap: 10px;
-  margin-top: 10px;
+  gap: clamp(14px, 4vw, 34px);
+  margin-top: 4vh;
   flex-wrap: wrap;
   justify-content: center;
 }
 
-.string-chip {
-  font-family: var(--font-mono);
-  font-size: 0.9rem;
-  border: 1px solid var(--stem);
-  color: var(--sage);
-  border-radius: 10px;
-  padding: 8px 14px;
-  transition: all 0.3s ease;
-}
-
-.string-chip.near {
-  color: var(--leaf);
-  border-color: var(--leaf);
-}
-
 .string-btn {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  color: var(--cream);
+  opacity: 0.65;
+  background: none;
+  border: none;
+  padding: 6px 2px;
   cursor: pointer;
-  background: rgba(16, 20, 8, 0.5);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 7px;
-  transition: all 0.25s ease;
+  gap: 4px;
+  transition: opacity 0.25s ease, color 0.25s ease, transform 0.25s ease;
+  text-shadow: 0 1px 10px rgba(16, 20, 8, 0.95);
 }
 
 .string-btn:hover {
-  color: var(--cream);
-  border-color: var(--sage);
+  opacity: 1;
 }
 
-.string-num {
-  font-size: 0.7rem;
-  opacity: 0.6;
+.string-btn.near {
+  opacity: 1;
+  transform: translateY(-2px);
 }
 
 .string-btn.locked {
-  color: var(--soil);
-  background: var(--bougain);
-  border-color: var(--bougain);
-  font-weight: 700;
-}
-
-.string-btn.locked .string-num {
-  opacity: 0.8;
+  color: var(--bougain);
+  opacity: 1;
 }
 
 .string-btn.done {
-  border-color: var(--leaf);
+  color: var(--leaf);
+  opacity: 0.95;
 }
 
-.string-btn.done:not(.locked) {
-  color: var(--leaf);
+.string-mark {
+  font-size: 0.7rem;
+  line-height: 1;
 }
 
 .tuner-alltuned {
   font-family: var(--font-display);
-  color: var(--leaf);
-  font-size: 1.1rem;
+  color: #fffdf4;
+  font-size: 1.15rem;
   font-weight: 600;
-  margin: 4px 0 0;
-  text-shadow: 0 0 30px rgba(143, 201, 124, 0.4);
+  margin: 3vh 0 0;
+  text-shadow: 0 0 40px rgba(245, 166, 35, 0.6), 0 1px 10px rgba(16, 20, 8, 0.9);
 }
 
 /* ---- shared mic / status ---- */
 
 .mic-btn {
-  font-family: var(--font-display);
-  font-weight: 650;
-  font-size: 1rem;
-  color: var(--cream);
-  background: rgba(16, 20, 8, 0.6);
-  border: 1px solid var(--sage);
-  border-radius: 14px;
-  padding: 12px 26px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--soil);
+  background: var(--cream);
+  border: none;
+  border-radius: 999px;
+  padding: 14px 34px;
+  margin-top: 3vh;
   cursor: pointer;
   transition: all 0.25s ease;
+  box-shadow: 0 8px 30px rgba(16, 20, 8, 0.5);
 }
 
 .mic-btn:hover {
-  border-color: var(--leaf);
-  color: var(--leaf);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 36px rgba(16, 20, 8, 0.6);
 }
 
 .mic-btn.live {

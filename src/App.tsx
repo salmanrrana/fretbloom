@@ -29,7 +29,6 @@ export default function App() {
     if (!el) return
     const clamped = Math.max(0, Math.min(1, level))
     el.style.opacity = String(clamped)
-    el.style.clipPath = `circle(${(6 + clamped * 140).toFixed(1)}% at 50% 34%)`
     gardenRef.current?.classList.toggle('in-tune', inTune)
   }, [])
 
@@ -58,43 +57,7 @@ export default function App() {
             <h1 className="wordmark">fretbloom</h1>
             <p className="tagline">tune it and the wall blooms</p>
           </div>
-
-          <div className="greenhouse">
-            {mode !== 'tune' && (
-              <button className="ghost-btn" onClick={() => pick('tune')}>
-                ← tuner
-              </button>
-            )}
-            <button
-              className={`ghost-btn greenhouse-toggle${greenhouse ? ' open' : ''}`}
-              onClick={() => setGreenhouse((s) => !s)}
-              aria-expanded={greenhouse}
-              aria-label="Greenhouse — experimental features"
-            >
-              ⚘<span className="greenhouse-word">greenhouse</span>
-            </button>
-          </div>
         </header>
-
-        {greenhouse && (
-          <nav className="experiments" aria-label="Experimental modes">
-            <p className="experiments-note">
-              Experiments growing in the greenhouse — rough edges expected.
-            </p>
-            <div className="experiments-row">
-              {EXPERIMENTS.map((m) => (
-                <button
-                  key={m.id}
-                  className={`target-chip${mode === m.id ? ' active' : ''}`}
-                  onClick={() => pick(m.id)}
-                  aria-pressed={mode === m.id}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-          </nav>
-        )}
 
         {mode === 'tune' && <TunerMode onBloom={onBloom} />}
         {mode === 'play' && <PlayMode />}
@@ -105,6 +68,46 @@ export default function App() {
           Everything runs in your browser; nothing is recorded or uploaded.
           {mode === 'listen' && ' Headphones help in listen mode — otherwise the app hears itself.'}
         </p>
+      </div>
+
+      <div className="greenhouse-corner">
+        {greenhouse && (
+          <nav className="experiments" aria-label="Experimental modes">
+            <p className="experiments-note">
+              Experiments growing in the greenhouse — rough edges expected.
+            </p>
+            <div className="experiments-row">
+              {EXPERIMENTS.map((m) => (
+                <button
+                  key={m.id}
+                  className={`target-chip${mode === m.id ? ' active' : ''}`}
+                  onClick={() => {
+                    pick(m.id)
+                    setGreenhouse(false)
+                  }}
+                  aria-pressed={mode === m.id}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </nav>
+        )}
+        <div className="greenhouse">
+          {mode !== 'tune' && (
+            <button className="ghost-btn" onClick={() => pick('tune')}>
+              ← tuner
+            </button>
+          )}
+          <button
+            className={`ghost-btn greenhouse-toggle${greenhouse ? ' open' : ''}`}
+            onClick={() => setGreenhouse((s) => !s)}
+            aria-expanded={greenhouse}
+            aria-label="Greenhouse — experimental features"
+          >
+            ⚘<span className="greenhouse-word">greenhouse</span>
+          </button>
+        </div>
       </div>
     </>
   )

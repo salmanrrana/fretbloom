@@ -85,7 +85,7 @@ await page.getByRole('button', { name: 'Stop listening' }).click()
 
 // ---------- TUNER ----------
 await page.getByRole('button', { name: '← tuner' }).click()
-await page.getByRole('button', { name: 'Start tuner' }).click()
+await page.getByRole('button', { name: /start tuner/i }).click()
 await page.waitForTimeout(300)
 
 // Perfectly tuned A2 (110 Hz)
@@ -95,7 +95,7 @@ let note = await page.locator('.tuner-note').innerText()
 let freqLine = await page.locator('.tuner-freq').innerText()
 check(note === 'A2', `tuner names the note (got "${note}")`)
 check((await page.locator('.tuner-note.in-tune').count()) === 1, `in-tune glow at 110 Hz (${freqLine})`)
-check((await page.locator('.string-chip.near').count()) === 1, 'matching string chip highlighted')
+check((await page.locator('.string-btn.near').count()) === 1, 'matching string chip highlighted')
 
 // Flat A2: 30 cents down = 110 * 2^(-30/1200) ≈ 108.11 Hz
 await page.evaluate(() => window.__setMicNotes([108.11]))

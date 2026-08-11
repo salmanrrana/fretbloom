@@ -66,7 +66,8 @@ await page.locator('.song-select').selectOption('let-it-hum')
 const firstChord = await page.locator('.chord-card.now .chord-name').innerText()
 check(firstChord === 'C', `song switch resets to first chord (${firstChord})`)
 
-// --- listen mode ---
+// --- listen mode (greenhouse closes after each pick, reopen it) ---
+await page.locator('.greenhouse-toggle').click()
 await page.locator('.experiments-row .target-chip', { hasText: 'Listen' }).click()
 check(await page.locator('.big-glow-note').isVisible(), 'listen target chord shown')
 check((await page.locator('.target-row .target-chip').count()) === 8, 'eight target chords')
@@ -87,14 +88,15 @@ await page.getByRole('button', { name: 'Stop listening' }).click()
 // --- tuner ---
 await page.getByRole('button', { name: '← tuner' }).click()
 check(await page.locator('.tuner-note').isVisible(), 'tuner note display visible')
-check((await page.locator('.string-chip').count()) === 6, 'six string chips')
-await page.getByRole('button', { name: 'Start tuner' }).click()
+check((await page.locator('.string-btn').count()) === 6, 'six string buttons')
+await page.getByRole('button', { name: /start tuner/i }).click()
 await page.waitForTimeout(600)
-const freqLine = await page.locator('.tuner-freq').innerText()
-check(/Pluck|Hz/.test(freqLine), `tuner live, readout = "${freqLine}"`)
-await page.getByRole('button', { name: 'Stop tuner' }).click()
+const modeLine = await page.locator('.tuner-mode-line').innerText()
+check(/listening/.test(modeLine), `tuner live, mode line = "${modeLine}"`)
+await page.getByRole('button', { name: /^stop$/i }).click()
 
 // --- audio scheduling sanity ---
+await page.locator('.greenhouse-toggle').click()
 await page.locator('.experiments-row .target-chip', { hasText: 'Play along' }).click()
 await page.locator('.play-btn').click()
 await page.waitForTimeout(500)

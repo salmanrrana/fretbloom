@@ -163,11 +163,11 @@ export function TunerMode({ onBloom }: TunerProps) {
   }, [reading, inTune])
 
   return (
-    <section className="panel" aria-label="Tuner">
+    <section className="tuner-stage" aria-label="Tuner">
+      {/* quiet settings, one text line */}
       <div className="tuner-top">
-        <p className="eyebrow" style={{ margin: 0 }}>Tuner</p>
         <select
-          className="song-select tuner-tuning"
+          className="tuner-tuning"
           value={tuningId}
           onChange={(e) => setTuningId(e.target.value)}
           aria-label="Choose a tuning"
@@ -187,95 +187,82 @@ export function TunerMode({ onBloom }: TunerProps) {
             onChange={(e) => setA4(Math.max(432, Math.min(446, Number(e.target.value) || 440)))}
             aria-label="Reference pitch A4 in hertz"
           />
-          Hz
         </label>
       </div>
 
-      <div className="tuner-face">
-        <p className="tuner-mode-line">
-          {lockedString !== null ? (
-            <>tuning <strong>{midiToNameWithOctave(tuning.midis[lockedString])}</strong> — tap the string again for auto</>
-          ) : (
-            'auto · pluck any string'
-          )}
-        </p>
+      <p className="tuner-mode-line">
+        {lockedString !== null ? (
+          <>tuning <strong>{midiToNameWithOctave(tuning.midis[lockedString])}</strong> \u00b7 tap again for auto</>
+        ) : live ? (
+          'listening \u00b7 pluck any string'
+        ) : (
+          '\u00a0'
+        )}
+      </p>
 
-        <p className={`tuner-note${inTune ? ' in-tune' : ''}`} style={reading ? undefined : { opacity: 0.25 }}>
-          {reading ? midiToName(reading.targetMidi) : '·'}
-          {reading && (
-            <span className="tuner-octave">{Math.floor(reading.targetMidi / 12) - 1}</span>
-          )}
-        </p>
+      {/* the note is the interface */}
+      <p className={`tuner-note${inTune ? ' in-tune' : ''}${reading ? '' : ' idle'}`}>
+        {reading ? midiToName(reading.targetMidi) : '\u2014'}
+        {reading && <span className="tuner-octave">{Math.floor(reading.targetMidi / 12) - 1}</span>}
+      </p>
 
-        <p className="tuner-freq">
-          {reading
-            ? `${reading.freq.toFixed(1)} Hz · ${reading.cents > 0 ? '+' : ''}${Math.round(reading.cents)}¢`
-            : live
-              ? 'Pluck one string…'
-              : 'Mic is off'}
-        </p>
+      <p className={`tuner-direction${inTune ? ' good' : ''}`}>
+        {reading ? (inTune ? 'in tune' : direction) : '\u00a0'}
+      </p>
 
-        <p className={`tuner-direction${inTune ? ' good' : ''}`}>
-          {reading ? (inTune ? 'in tune — hold it' : direction) : ' '}
-        </p>
-
-        <div className="cents-scale" role="img" aria-label={reading ? `${Math.round(reading.cents)} cents from target` : 'No note detected'}>
-          <div className="cents-line" />
-          {[-40, -30, -20, -10, 10, 20, 30, 40].map((c) => (
-            <div key={c} className="cents-tick" style={{ left: `calc(50% + ${c}%)` }} />
-          ))}
-          <div className="cents-center" />
-          <div
-            className={`cents-needle${inTune ? ' in-tune' : ''}`}
-            style={{ left: `calc(50% + ${clamped}%)`, opacity: reading ? 1 : 0.25 }}
-          />
-          <div className="cents-labels">
-            <span>♭ 50</span>
-            <span>0</span>
-            <span>50 ♯</span>
-          </div>
-        </div>
-
+      {/* one horizon line; the needle is a stem of light */}
+      <div className="cents-scale" role="img" aria-label={reading ? `${Math.round(reading.cents)} cents from target` : 'No note detected'}>
+        <div className="cents-line" />
+        <div className="cents-center" />
+        <div
+          className={`cents-needle${inTune ? ' in-tune' : ''}`}
+          style={{ left: `calc(50% + ${clamped * 0.9}%)`, opacity: reading ? 1 : 0 }}
+        />
         <div
           ref={strobeRef}
           className={`strobe-ribbon${inTune ? ' in-tune' : ''}`}
           aria-hidden="true"
         />
-
-        <div className="tuner-strings" role="group" aria-label="Strings — tap to lock one">
-          {tuning.midis.map((midi, i) => {
-            const isTarget = i === targetIdx
-            const isLocked = lockedString === i
-            const isDone = tunedStrings.has(i)
-            return (
-              <button
-                key={`${tuningId}-${i}`}
-                className={[
-                  'string-chip',
-                  'string-btn',
-                  isTarget ? 'near' : '',
-                  isLocked ? 'locked' : '',
-                  isDone ? 'done' : '',
-                ].filter(Boolean).join(' ')}
-                onClick={() => setLockedString(isLocked ? null : i)}
-                aria-pressed={isLocked}
-                aria-label={`String ${i + 1}: ${midiToNameWithOctave(midi)}${isDone ? ', tuned' : ''}`}
-              >
-                <span className="string-num">{6 - i}</span>
-                {midiToNameWithOctave(midi)}
-                {isDone && <span className="string-check"> ✓</span>}
-              </button>
-            )
-          })}
-        </div>
-
-        {allTuned && <p className="tuner-alltuned">All six strings in tune. Go make some noise.</p>}
-
-        <button className={`mic-btn${live ? ' live' : ''}`} onClick={toggle}>
-          {live ? 'Stop tuner' : 'Start tuner'}
-        </button>
-        {error && <p className="listen-status">{error}</p>}
       </div>
+
+      <p className="tuner-freq">
+        {reading
+          ? `${reading.freq.toFixed(1)} Hz \u00b7 ${reading.cents > 0 ? '+' : ''}${Math.round(reading.cents)}\u00a2`
+          : '\u00a0'}
+      </p>
+
+      {/* six strings, six words on the wall */}
+      <div className="tuner-strings" role="group" aria-label="Strings, tap to lock one">
+        {tuning.midis.map((midi, i) => {
+          const isTarget = i === targetIdx
+          const isLocked = lockedString === i
+          const isDone = tunedStrings.has(i)
+          return (
+            <button
+              key={`${tuningId}-${i}`}
+              className={[
+                'string-btn',
+                isTarget ? 'near' : '',
+                isLocked ? 'locked' : '',
+                isDone ? 'done' : '',
+              ].filter(Boolean).join(' ')}
+              onClick={() => setLockedString(isLocked ? null : i)}
+              aria-pressed={isLocked}
+              aria-label={`String ${i + 1}: ${midiToNameWithOctave(midi)}${isDone ? ', tuned' : ''}`}
+            >
+              {midiToNameWithOctave(midi)}
+              <span className="string-mark">{isDone ? '\u25cf' : '\u25cb'}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {allTuned && <p className="tuner-alltuned">all six in bloom \u2014 go make some noise</p>}
+
+      <button className={`mic-btn${live ? ' live' : ''}`} onClick={toggle}>
+        {live ? 'stop' : 'start tuner'}
+      </button>
+      {error && <p className="listen-status">{error}</p>}
     </section>
   )
 }

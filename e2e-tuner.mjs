@@ -47,7 +47,7 @@ check(/rough edges/.test(await page.locator('.experiments-note').innerText()), '
 await page.locator('.greenhouse-toggle').click()
 check((await page.locator('.experiments').count()) === 0, 'greenhouse closes again')
 
-await page.getByRole('button', { name: 'Start tuner' }).click()
+await page.getByRole('button', { name: /start tuner/i }).click()
 await page.waitForTimeout(300)
 
 // --- auto mode: A2 in tune ---
@@ -55,18 +55,18 @@ await page.evaluate(() => window.__setMicNotes([110.0]))
 await page.waitForTimeout(1300)
 check((await page.locator('.tuner-note').innerText()).startsWith('A'), 'auto detects A string')
 check((await page.locator('.tuner-note.in-tune').count()) === 1, 'in-tune state at 110 Hz')
-check(/hold it/.test(await page.locator('.tuner-direction').innerText()), 'direction line confirms in tune')
+check(/in tune/i.test(await page.locator('.tuner-direction').innerText()), 'direction line confirms in tune')
 check((await page.locator('.string-btn.done').count()) >= 1, 'string marked ✓ after stable in-tune')
 
 // --- flat string: direction advice ---
 await page.evaluate(() => window.__setMicNotes([106.5])) // ~-56¢... clamps to A string still
 await page.waitForTimeout(1000)
-check(/tighten|tune up/.test(await page.locator('.tuner-direction').innerText()), 'flat note says tune up')
+check(/tighten|tune up/i.test(await page.locator('.tuner-direction').innerText()), 'flat note says tune up')
 
 // --- sharp string ---
 await page.evaluate(() => window.__setMicNotes([113.0]))
 await page.waitForTimeout(1000)
-check(/loosen|tune down/.test(await page.locator('.tuner-direction').innerText()), 'sharp note says tune down')
+check(/loosen|tune down/i.test(await page.locator('.tuner-direction').innerText()), 'sharp note says tune down')
 
 // --- manual string lock: lock high e (index 5), play A2 — cents vs E4 target ---
 await page.locator('.string-btn').nth(5).click()
@@ -78,7 +78,7 @@ check(lockedNote.startsWith('E'), `locked mode shows target note E (got ${locked
 check((await page.locator('.tuner-note.in-tune').count()) === 0, 'A2 vs locked E4 is not in tune')
 // unlock by tapping again
 await page.locator('.string-btn').nth(5).click()
-check(/auto/.test(await page.locator('.tuner-mode-line').innerText()), 'tap again returns to auto')
+check(/listening/.test(await page.locator('.tuner-mode-line').innerText()), 'tap again returns to auto (mode line back to listening)')
 
 // --- alternate tuning: Drop D, low string target becomes D2 (73.42 Hz) ---
 await page.evaluate(() => window.__setMicNotes([])) // silence so the old tone can't instantly re-earn a ✓
