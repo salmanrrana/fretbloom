@@ -34,14 +34,18 @@ await page.addInitScript(() => {
 
 await page.goto(BASE, { waitUntil: 'networkidle' })
 
-// Landing state
-check((await page.locator('.mode-btn.active').innerText()).startsWith('Tune'), 'tuner is the landing page')
-check((await page.locator('.mode-btn .flask').count()) === 3, 'three modes flagged experimental')
-check((await page.locator('.experimental-banner').count()) === 0, 'no WIP banner on tuner')
-await page.getByRole('button', { name: /Play along/ }).click()
-check(await page.locator('.experimental-banner').isVisible(), 'WIP banner on experimental mode')
-check(/Work in progress/.test(await page.locator('.experimental-banner').innerText()), 'banner says work in progress')
-await page.getByRole('button', { name: /^Tune/ }).click()
+// Landing state: tuner front and center, experiments behind the greenhouse door
+check(await page.locator('.tuner-note').isVisible(), 'tuner is the landing page')
+check((await page.locator('.experiments').count()) === 0, 'experiments hidden by default')
+check((await page.locator('.garden-muted').count()) === 1, 'muted garden layer present')
+check((await page.locator('.garden-color').count()) === 1, 'color garden layer present')
+const idleOpacity = await page.locator('.garden-color').evaluate((el) => getComputedStyle(el).opacity)
+check(parseFloat(idleOpacity) < 0.05, `garden starts muted (color opacity ${idleOpacity})`)
+await page.locator('.greenhouse-toggle').click()
+check((await page.locator('.experiments-row .target-chip').count()) === 3, 'greenhouse opens with 3 experiments')
+check(/rough edges/.test(await page.locator('.experiments-note').innerText()), 'greenhouse notes rough edges')
+await page.locator('.greenhouse-toggle').click()
+check((await page.locator('.experiments').count()) === 0, 'greenhouse closes again')
 
 await page.getByRole('button', { name: 'Start tuner' }).click()
 await page.waitForTimeout(300)
@@ -117,6 +121,25 @@ check(await page.locator('.tuner-alltuned').isVisible(), 'all-tuned celebration 
 // --- strobe ribbon present and animating class logic ---
 check((await page.locator('.strobe-ribbon').count()) === 1, 'strobe ribbon present')
 check((await page.locator('.strobe-ribbon.in-tune').count()) === 1, 'strobe goes moss when in tune')
+
+// --- THE SIGNATURE: the wall blooms with accuracy ---
+// hold an in-tune note, wall should saturate toward full color
+await page.evaluate(() => window.__setMicNotes([110.0]))
+await page.waitForTimeout(2500)
+const bloomIn = await page.locator('.garden-color').evaluate((el) => getComputedStyle(el).opacity)
+check(parseFloat(bloomIn) > 0.75, `in tune: wall blooms (opacity ${bloomIn})`)
+check((await page.locator('.garden.in-tune').count()) === 1, 'in-tune breathing class applied')
+// go way off pitch — wall should wilt back toward muted
+await page.evaluate(() => window.__setMicNotes([100.0]))
+await page.waitForTimeout(3500)
+const bloomOut = await page.locator('.garden-color').evaluate((el) => getComputedStyle(el).opacity)
+check(parseFloat(bloomOut) < 0.35, `off pitch: wall wilts (opacity ${bloomOut})`)
+check((await page.locator('.garden.in-tune').count()) === 0, 'breathing class removed off pitch')
+// silence: bloom decays to zero
+await page.evaluate(() => window.__setMicNotes([]))
+await page.waitForTimeout(3000)
+const bloomSilent = await page.locator('.garden-color').evaluate((el) => getComputedStyle(el).opacity)
+check(parseFloat(bloomSilent) < 0.1, `silence: wall rests (opacity ${bloomSilent})`)
 
 await browser.close()
 console.log(failures === 0 ? '\nALL TUNER CHECKS PASSED' : `\n${failures} FAILED`)

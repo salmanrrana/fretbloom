@@ -43,7 +43,8 @@ await page.addInitScript(() => {
 await page.goto(BASE, { waitUntil: 'networkidle' })
 
 // ---------- LISTEN MODE ----------
-await page.getByRole('button', { name: 'Listen' }).click()
+await page.locator('.greenhouse-toggle').click()
+await page.locator('.experiments-row .target-chip', { hasText: 'Listen' }).click()
 await page.getByRole('button', { name: 'Start listening' }).click()
 await page.waitForTimeout(400)
 
@@ -55,35 +56,35 @@ const F = [87.31, 130.81, 174.61, 220.0, 261.63, 349.23]
 // Wrong chord first: play F at a G target — must NOT glow.
 await page.evaluate((f) => window.__setMicNotes(f), F)
 await page.waitForTimeout(1500)
-const wrongGlow = await page.locator('.bloom.success.lit').count()
+const wrongGlow = await page.locator('.garden.in-tune').count()
 const wrongHit = await page.locator('.corner-cameo.hit').count()
-check(wrongGlow === 0 && wrongHit === 0, 'F chord at G target does NOT glow')
+check(wrongGlow === 0 && wrongHit === 0, 'F chord at G target does NOT bloom')
 
 // Now the right chord.
 await page.evaluate((g) => window.__setMicNotes(g), G)
 await page.waitForTimeout(2000)
-const glow = await page.locator('.bloom.success.lit').count()
+const glow = await page.locator('.garden.in-tune').count()
 const hit = await page.locator('.corner-cameo.hit').count()
 const status = await page.locator('.listen-status').innerText()
-check(glow === 1, 'G chord at G target lights the room glow')
+check(glow === 1, 'G chord at G target blooms the wall')
 check(hit === 1, 'corner cameo turns moss on hit')
 check(/ringing/.test(status), `status celebrates: "${status}"`)
 
 // Silence: glow should fade back out.
 await page.evaluate(() => window.__setMicNotes([]))
 await page.waitForTimeout(2500)
-check((await page.locator('.bloom.success.lit').count()) === 0, 'glow fades on silence')
+check((await page.locator('.garden.in-tune').count()) === 0, 'bloom fades on silence')
 
 // Switch target to Am and play Am (A2 E3 A3 C4 E4) — should glow again.
-await page.locator('.target-chip', { hasText: 'Am' }).click()
+await page.locator('.target-row .target-chip', { hasText: 'Am' }).click()
 await page.evaluate(() => window.__setMicNotes([110.0, 164.81, 220.0, 261.63, 329.63]))
 await page.waitForTimeout(2000)
-check((await page.locator('.bloom.success.lit').count()) === 1, 'Am chord at Am target glows')
+check((await page.locator('.garden.in-tune').count()) === 1, 'Am chord at Am target blooms')
 await page.evaluate(() => window.__setMicNotes([]))
 await page.getByRole('button', { name: 'Stop listening' }).click()
 
 // ---------- TUNER ----------
-await page.getByRole('button', { name: 'Tune', exact: true }).click()
+await page.getByRole('button', { name: '← tuner' }).click()
 await page.getByRole('button', { name: 'Start tuner' }).click()
 await page.waitForTimeout(300)
 

@@ -14,7 +14,12 @@ interface Reading {
 const IN_TUNE_CENTS = 3
 const STABLE_MS = 800
 
-export function TunerMode() {
+interface TunerProps {
+  /** Feed the flower wall: level 0..1 (accuracy) and whether we're in tune. */
+  onBloom?: (level: number, inTune: boolean) => void
+}
+
+export function TunerMode({ onBloom }: TunerProps) {
   const [live, setLive] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [tuningId, setTuningId] = useState('standard')
@@ -39,6 +44,9 @@ export function TunerMode() {
   tuningRef.current = tuning
   const a4Ref = useRef(a4)
   a4Ref.current = a4
+  const onBloomRef = useRef(onBloom)
+  onBloomRef.current = onBloom
+  const bloomLevel = useRef(0)
 
   useEffect(() => {
     if (!live) return
@@ -86,12 +94,24 @@ export function TunerMode() {
       }
 
       // Strobe ribbon: drift speed and direction follow the cents offset.
+      const hasSignal = now < holdUntil.current
       if (strobeRef.current) {
-        const hasSignal = now < holdUntil.current
         strobePhase.current += (hasSignal ? smoothCents.current : 0) * dt * 2.2
         strobeRef.current.style.backgroundPositionX = `${strobePhase.current}px`
         strobeRef.current.style.opacity = hasSignal ? '1' : '0.2'
       }
+
+      // Flower wall: accuracy → bloom. 50¢ off = bare wall, 0¢ = full color.
+      // Eased toward the target so the wall breathes instead of flickering.
+      const targetBloom = hasSignal
+        ? Math.max(0, 1 - Math.abs(smoothCents.current) / 50) ** 1.6
+        : 0
+      const rate = targetBloom > bloomLevel.current ? 4.5 : 1.2 // blooms fast, wilts slow
+      bloomLevel.current += (targetBloom - bloomLevel.current) * Math.min(1, dt * rate)
+      onBloomRef.current?.(
+        bloomLevel.current,
+        hasSignal && Math.abs(smoothCents.current) <= IN_TUNE_CENTS,
+      )
       rafRef.current = requestAnimationFrame(tick)
     }
     rafRef.current = requestAnimationFrame(tick)
@@ -99,7 +119,13 @@ export function TunerMode() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live])
 
-  useEffect(() => () => engine.mic.stop(), [])
+  useEffect(
+    () => () => {
+      engine.mic.stop()
+      onBloomRef.current?.(0, false)
+    },
+    [],
+  )
 
   // Reset per-string progress when the tuning or calibration changes.
   useEffect(() => {
@@ -113,6 +139,8 @@ export function TunerMode() {
       engine.mic.stop()
       setLive(false)
       setReading(null)
+      bloomLevel.current = 0
+      onBloomRef.current?.(0, false)
       return
     }
     try {

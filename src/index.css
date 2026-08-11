@@ -1,23 +1,34 @@
-/* Fretbloom design tokens
-   night:   #131022  deep violet-black room
-   dusk:    #1D1833  raised surfaces
-   veil:    #2A2347  borders / quiet lines
-   moth:    #EDE7FF  primary text, moonlit lavender
-   faded:   #9A8FC0  secondary text
-   ember:   #FF9E64  sunset orange — the "now"
-   petal:   #E86BB5  magenta — the "next" / accents
-   moss:    #7FE0B2  mint — success, in-tune, glow
+/* fretbloom — garden edition.
+   Palette sampled from the lantana/bougainvillea photograph:
+   soil:      #101408  near-black green, the shadow between stems
+   loam:      #1A2010  raised glass surfaces
+   stem:      #33402A  borders, quiet lines
+   cream:     #F4EEDF  primary text, sun-bleached paper
+   sage:      #A8B394  secondary text
+   marigold:  #F5A623  the yellow lantana — the "now", warmth, needle
+   bougain:   #D96A9E  bougainvillea pink — accents, lock, next
+   leaf:      #8FC97C  fresh leaf green — success, in tune
 */
 
 :root {
-  --night: #131022;
-  --dusk: #1d1833;
-  --veil: #2a2347;
-  --moth: #ede7ff;
-  --faded: #9a8fc0;
-  --ember: #ff9e64;
-  --petal: #e86bb5;
-  --moss: #7fe0b2;
+  --soil: #101408;
+  --loam: #1a2010;
+  --stem: #33402a;
+  --cream: #f4eedf;
+  --sage: #a8b394;
+  --marigold: #f5a623;
+  --bougain: #d96a9e;
+  --leaf: #8fc97c;
+
+  /* legacy token aliases so every component keeps working */
+  --night: var(--soil);
+  --dusk: var(--loam);
+  --veil: var(--stem);
+  --moth: var(--cream);
+  --faded: var(--sage);
+  --ember: var(--marigold);
+  --petal: var(--bougain);
+  --moss: var(--leaf);
 
   --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
   --font-body: 'Spline Sans', system-ui, sans-serif;
@@ -35,8 +46,8 @@ body {
 }
 
 body {
-  background: var(--night);
-  color: var(--moth);
+  background: var(--soil);
+  color: var(--cream);
   font-family: var(--font-body);
   font-weight: 340;
   min-height: 100vh;
@@ -48,86 +59,58 @@ body {
   position: relative;
 }
 
-/* ---- the bloom: a slow breathing aurora behind everything ---- */
+/* ---- the garden: the photograph is the app ----
+   Two copies of the same image are stacked. The muted layer is always there,
+   desaturated and dark. The color layer sits on top and is revealed by the
+   tuner: its opacity and clip-circle grow with tuning accuracy, so pulling a
+   string into pitch literally waters the wall back to life. */
 
-.bloom-field {
+.garden {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  overflow: hidden;
 }
 
-.bloom {
+.garden-muted,
+.garden-color {
   position: absolute;
-  border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.5;
-  will-change: transform, opacity;
-  transition: opacity 1.6s ease;
+  inset: 0;
+  background-image: url('/garden.jpg');
+  background-size: cover;
+  background-position: center;
 }
 
-.bloom.a {
-  width: 55vmax;
-  height: 55vmax;
-  left: -12vmax;
-  top: -18vmax;
-  background: radial-gradient(circle, #4a2a6b 0%, transparent 65%);
-  animation: drift-a 26s ease-in-out infinite alternate;
+.garden-muted {
+  filter: saturate(0.18) brightness(0.42) contrast(0.95);
 }
 
-.bloom.b {
-  width: 48vmax;
-  height: 48vmax;
-  right: -14vmax;
-  bottom: -16vmax;
-  background: radial-gradient(circle, #6b2a52 0%, transparent 65%);
-  animation: drift-b 32s ease-in-out infinite alternate;
-}
-
-.bloom.c {
-  width: 34vmax;
-  height: 34vmax;
-  left: 30vw;
-  top: 40vh;
-  background: radial-gradient(circle, #23405a 0%, transparent 65%);
-  animation: drift-c 40s ease-in-out infinite alternate;
-}
-
-/* success glow — listen mode floods the room in moss */
-.bloom.success {
-  width: 70vmax;
-  height: 70vmax;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  background: radial-gradient(circle, rgba(127, 224, 178, 0.55) 0%, transparent 62%);
+.garden-color {
+  filter: saturate(1.15) brightness(0.72);
   opacity: 0;
-  animation: none;
+  clip-path: circle(6% at 50% 34%);
+  transition: none; /* driven per-frame from the tuner */
 }
 
-.bloom.success.lit {
-  opacity: 0.85;
-  transition: opacity 0.35s ease;
+.garden.in-tune .garden-color {
+  animation: bloom-breathe 2.6s ease-in-out infinite;
 }
 
-@keyframes drift-a {
-  from { transform: translate(0, 0) scale(1); }
-  to { transform: translate(9vmax, 6vmax) scale(1.15); }
+@keyframes bloom-breathe {
+  0%, 100% { filter: saturate(1.15) brightness(0.72); }
+  50% { filter: saturate(1.35) brightness(0.82); }
 }
 
-@keyframes drift-b {
-  from { transform: translate(0, 0) scale(1.1); }
-  to { transform: translate(-8vmax, -7vmax) scale(0.95); }
-}
-
-@keyframes drift-c {
-  from { transform: translate(0, 0) scale(0.9); }
-  to { transform: translate(-6vmax, 8vmax) scale(1.2); }
+.garden-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 30%, transparent 30%, rgba(16, 20, 8, 0.55) 100%),
+    linear-gradient(to bottom, rgba(16, 20, 8, 0.5), transparent 22%, transparent 70%, rgba(16, 20, 8, 0.72));
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bloom.a, .bloom.b, .bloom.c {
+  .garden.in-tune .garden-color {
     animation: none;
   }
 }
@@ -144,11 +127,11 @@ body {
 
 .masthead {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 30px;
+  margin-bottom: 26px;
 }
 
 .wordmark {
@@ -157,68 +140,99 @@ body {
   font-weight: 720;
   letter-spacing: -0.03em;
   margin: 0;
-  background: linear-gradient(100deg, var(--ember) 10%, var(--petal) 55%, var(--moss) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--cream);
+  text-shadow: 0 2px 24px rgba(16, 20, 8, 0.9);
+}
+
+.wordmark::first-letter {
+  color: var(--marigold);
 }
 
 .tagline {
-  color: var(--faded);
+  color: var(--sage);
   font-size: 0.95rem;
-  margin: 0;
+  margin: 4px 0 0;
+  text-shadow: 0 1px 12px rgba(16, 20, 8, 0.9);
 }
 
-/* ---- mode switch ---- */
+/* ---- greenhouse: the hidden door to the experiments ---- */
 
-.modes {
+.greenhouse {
   display: flex;
   gap: 8px;
-  margin-bottom: 26px;
+  align-items: center;
+}
+
+.ghost-btn {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--sage);
+  background: rgba(16, 20, 8, 0.55);
+  border: 1px solid rgba(168, 179, 148, 0.25);
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: color 0.25s, border-color 0.25s;
+}
+
+.ghost-btn:hover {
+  color: var(--cream);
+  border-color: var(--sage);
+}
+
+.greenhouse-toggle {
+  opacity: 0.75;
+}
+
+.greenhouse-toggle .greenhouse-word {
+  margin-left: 6px;
+}
+
+.greenhouse-toggle.open {
+  color: var(--bougain);
+  border-color: var(--bougain);
+  opacity: 1;
+}
+
+.experiments {
+  margin-bottom: 20px;
+  border: 1px dashed rgba(217, 106, 158, 0.4);
+  border-radius: 16px;
+  padding: 14px 18px;
+  background: rgba(16, 20, 8, 0.6);
+  backdrop-filter: blur(10px);
+}
+
+.experiments-note {
+  font-size: 0.85rem;
+  color: var(--sage);
+  margin: 0 0 10px;
+}
+
+.experiments-row {
+  display: flex;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
-.mode-btn {
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 550;
-  letter-spacing: 0.01em;
-  color: var(--faded);
-  background: transparent;
-  border: 1px solid var(--veil);
-  border-radius: 999px;
-  padding: 10px 22px;
-  cursor: pointer;
-  transition: color 0.25s, border-color 0.25s, background 0.25s;
-}
-
-.mode-btn:hover {
-  color: var(--moth);
-  border-color: var(--faded);
-}
-
-.mode-btn:focus-visible,
 button:focus-visible,
-select:focus-visible {
-  outline: 2px solid var(--moss);
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--leaf);
   outline-offset: 2px;
 }
 
-.mode-btn.active {
-  color: var(--night);
-  background: linear-gradient(100deg, var(--ember), var(--petal));
-  border-color: transparent;
-  font-weight: 700;
-}
-
-/* ---- panels ---- */
+/* ---- panels: glass over the garden ---- */
 
 .panel {
-  background: color-mix(in srgb, var(--dusk) 78%, transparent);
-  border: 1px solid var(--veil);
+  background: rgba(16, 20, 8, 0.55);
+  border: 1px solid rgba(168, 179, 148, 0.18);
   border-radius: 22px;
   padding: 24px;
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px) saturate(1.1);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
 }
 
 .eyebrow {
@@ -226,11 +240,11 @@ select:focus-visible {
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.22em;
-  color: var(--faded);
+  color: var(--sage);
   margin: 0 0 10px;
 }
 
-/* ---- player ---- */
+/* ---- player (experimental) ---- */
 
 .song-row {
   display: flex;
@@ -245,9 +259,9 @@ select:focus-visible {
   min-width: 240px;
   font-family: var(--font-body);
   font-size: 1rem;
-  color: var(--moth);
-  background: var(--night);
-  border: 1px solid var(--veil);
+  color: var(--cream);
+  background: rgba(16, 20, 8, 0.8);
+  border: 1px solid var(--stem);
   border-radius: 14px;
   padding: 12px 16px;
   cursor: pointer;
@@ -257,8 +271,8 @@ select:focus-visible {
   font-family: var(--font-display);
   font-size: 1.05rem;
   font-weight: 700;
-  color: var(--night);
-  background: linear-gradient(100deg, var(--ember), var(--petal));
+  color: var(--soil);
+  background: linear-gradient(100deg, var(--marigold), var(--bougain));
   border: none;
   border-radius: 14px;
   padding: 12px 30px;
@@ -268,12 +282,19 @@ select:focus-visible {
 
 .play-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 30px rgba(232, 107, 181, 0.35);
+  box-shadow: 0 6px 30px rgba(245, 166, 35, 0.35);
+}
+
+.play-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .song-vibe {
   width: 100%;
-  color: var(--faded);
+  color: var(--sage);
   font-size: 0.88rem;
   margin: -8px 0 0;
 }
@@ -296,7 +317,8 @@ select:focus-visible {
 
 .chord-card {
   border-radius: 18px;
-  border: 1px solid var(--veil);
+  border: 1px solid var(--stem);
+  background: rgba(16, 20, 8, 0.45);
   padding: 18px;
   display: flex;
   flex-direction: column;
@@ -306,12 +328,11 @@ select:focus-visible {
 }
 
 .chord-card.now {
-  border-color: color-mix(in srgb, var(--ember) 55%, transparent);
-  box-shadow: 0 0 40px rgba(255, 158, 100, 0.12) inset;
+  border-color: color-mix(in srgb, var(--marigold) 55%, transparent);
+  box-shadow: 0 0 40px rgba(245, 166, 35, 0.1) inset;
 }
 
 .chord-card.next {
-  border-color: var(--veil);
   opacity: 0.85;
 }
 
@@ -322,8 +343,8 @@ select:focus-visible {
   text-transform: uppercase;
 }
 
-.chord-card.now .role { color: var(--ember); }
-.chord-card.next .role { color: var(--petal); }
+.chord-card.now .role { color: var(--marigold); }
+.chord-card.next .role { color: var(--bougain); }
 
 .chord-name {
   font-family: var(--font-display);
@@ -334,35 +355,34 @@ select:focus-visible {
 }
 
 .chord-notes {
-  color: var(--faded);
+  color: var(--sage);
   font-size: 0.92rem;
   margin: 0;
 }
 
 .chord-notes strong {
-  color: var(--moth);
+  color: var(--cream);
   font-weight: 550;
 }
 
 .stage-arrow {
   align-self: center;
-  color: var(--faded);
+  color: var(--sage);
   font-size: 1.6rem;
   padding: 0 2px;
 }
 
-/* progress bar under the now card */
 .beat-track {
   width: 100%;
   height: 4px;
   border-radius: 2px;
-  background: var(--veil);
+  background: var(--stem);
   overflow: hidden;
 }
 
 .beat-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--ember), var(--petal));
+  background: linear-gradient(90deg, var(--marigold), var(--bougain));
   transition: none;
 }
 
@@ -372,9 +392,9 @@ select:focus-visible {
   font-family: var(--font-mono);
   font-size: clamp(0.82rem, 2.4vw, 1rem);
   line-height: 1.5;
-  color: var(--faded);
-  background: var(--night);
-  border: 1px solid var(--veil);
+  color: var(--sage);
+  background: rgba(16, 20, 8, 0.85);
+  border: 1px solid var(--stem);
   border-radius: 12px;
   padding: 12px 16px;
   margin: 0;
@@ -382,15 +402,15 @@ select:focus-visible {
 }
 
 .tab-block .lit {
-  color: var(--ember);
+  color: var(--marigold);
   font-weight: 700;
 }
 
 .chord-card.next .tab-block .lit {
-  color: var(--petal);
+  color: var(--bougain);
 }
 
-/* ---- timeline strip ---- */
+/* ---- timeline ---- */
 
 .timeline {
   display: flex;
@@ -404,30 +424,71 @@ select:focus-visible {
   font-size: 0.85rem;
   padding: 6px 14px;
   border-radius: 999px;
-  border: 1px solid var(--veil);
-  color: var(--faded);
+  border: 1px solid var(--stem);
+  color: var(--sage);
   transition: all 0.3s ease;
 }
 
 .timeline-chip.now {
-  color: var(--night);
-  background: var(--ember);
-  border-color: var(--ember);
+  color: var(--soil);
+  background: var(--marigold);
+  border-color: var(--marigold);
   font-weight: 700;
 }
 
 .timeline-chip.next {
-  color: var(--petal);
-  border-color: var(--petal);
+  color: var(--bougain);
+  border-color: var(--bougain);
 }
 
-/* ---- chord diagram svg ---- */
+.timeline-jump {
+  cursor: pointer;
+  background: transparent;
+  font-family: var(--font-mono);
+}
+
+.timeline-jump.now {
+  background: var(--marigold);
+}
 
 .diagram {
   display: block;
 }
 
-/* ---- tuner ---- */
+/* ---- tuner: the heart ---- */
+
+.tuner-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.tuner-tuning {
+  flex: 1;
+  min-width: 220px;
+}
+
+.a4-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--sage);
+}
+
+.a4-input {
+  width: 64px;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--cream);
+  background: rgba(16, 20, 8, 0.8);
+  border: 1px solid var(--stem);
+  border-radius: 10px;
+  padding: 8px 10px;
+  text-align: center;
+}
 
 .tuner-face {
   display: flex;
@@ -437,6 +498,18 @@ select:focus-visible {
   padding: 20px 0 8px;
 }
 
+.tuner-mode-line {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--sage);
+  margin: 0;
+  min-height: 1.4em;
+}
+
+.tuner-mode-line strong {
+  color: var(--bougain);
+}
+
 .tuner-note {
   font-family: var(--font-display);
   font-size: clamp(4rem, 14vw, 7rem);
@@ -444,19 +517,42 @@ select:focus-visible {
   line-height: 1;
   margin: 0;
   transition: color 0.3s ease, text-shadow 0.3s ease;
+  text-shadow: 0 4px 40px rgba(16, 20, 8, 0.8);
 }
 
 .tuner-note.in-tune {
-  color: var(--moss);
-  text-shadow: 0 0 60px rgba(127, 224, 178, 0.5);
+  color: var(--leaf);
+  text-shadow: 0 0 60px rgba(143, 201, 124, 0.55);
+}
+
+.tuner-octave {
+  font-size: 0.35em;
+  font-weight: 500;
+  color: var(--sage);
+  vertical-align: super;
+  margin-left: 0.1em;
 }
 
 .tuner-freq {
   font-family: var(--font-mono);
-  color: var(--faded);
+  color: var(--sage);
   font-size: 0.95rem;
   margin: 0;
   min-height: 1.4em;
+}
+
+.tuner-direction {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 550;
+  color: var(--marigold);
+  margin: 0;
+  min-height: 1.5em;
+  transition: color 0.3s ease;
+}
+
+.tuner-direction.good {
+  color: var(--leaf);
 }
 
 .cents-scale {
@@ -471,7 +567,16 @@ select:focus-visible {
   left: 0;
   right: 0;
   height: 2px;
-  background: var(--veil);
+  background: rgba(168, 179, 148, 0.3);
+}
+
+.cents-tick {
+  position: absolute;
+  top: 22px;
+  width: 1px;
+  height: 10px;
+  background: rgba(168, 179, 148, 0.3);
+  transform: translateX(-50%);
 }
 
 .cents-center {
@@ -480,7 +585,7 @@ select:focus-visible {
   left: 50%;
   width: 2px;
   height: 26px;
-  background: var(--faded);
+  background: var(--sage);
   transform: translateX(-50%);
 }
 
@@ -491,14 +596,15 @@ select:focus-visible {
   width: 4px;
   height: 38px;
   border-radius: 2px;
-  background: var(--ember);
+  background: var(--marigold);
   transform: translateX(-50%);
   transition: left 0.1s ease-out, background 0.3s ease, opacity 0.3s ease;
+  box-shadow: 0 0 12px rgba(245, 166, 35, 0.5);
 }
 
 .cents-needle.in-tune {
-  background: var(--moss);
-  box-shadow: 0 0 18px rgba(127, 224, 178, 0.8);
+  background: var(--leaf);
+  box-shadow: 0 0 18px rgba(143, 201, 124, 0.8);
 }
 
 .cents-labels {
@@ -510,7 +616,33 @@ select:focus-visible {
   justify-content: space-between;
   font-family: var(--font-mono);
   font-size: 0.7rem;
-  color: var(--faded);
+  color: var(--sage);
+}
+
+.strobe-ribbon {
+  width: min(420px, 90%);
+  height: 18px;
+  border-radius: 9px;
+  border: 1px solid var(--stem);
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 14px,
+    color-mix(in srgb, var(--marigold) 55%, transparent) 14px,
+    color-mix(in srgb, var(--marigold) 55%, transparent) 28px
+  );
+  transition: opacity 0.4s ease;
+}
+
+.strobe-ribbon.in-tune {
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 14px,
+    color-mix(in srgb, var(--leaf) 65%, transparent) 14px,
+    color-mix(in srgb, var(--leaf) 65%, transparent) 28px
+  );
+  box-shadow: 0 0 22px rgba(143, 201, 124, 0.25);
 }
 
 .tuner-strings {
@@ -524,19 +656,104 @@ select:focus-visible {
 .string-chip {
   font-family: var(--font-mono);
   font-size: 0.9rem;
-  border: 1px solid var(--veil);
-  color: var(--faded);
+  border: 1px solid var(--stem);
+  color: var(--sage);
   border-radius: 10px;
   padding: 8px 14px;
   transition: all 0.3s ease;
 }
 
 .string-chip.near {
-  color: var(--moss);
-  border-color: var(--moss);
+  color: var(--leaf);
+  border-color: var(--leaf);
 }
 
-/* ---- listen mode ---- */
+.string-btn {
+  cursor: pointer;
+  background: rgba(16, 20, 8, 0.5);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  transition: all 0.25s ease;
+}
+
+.string-btn:hover {
+  color: var(--cream);
+  border-color: var(--sage);
+}
+
+.string-num {
+  font-size: 0.7rem;
+  opacity: 0.6;
+}
+
+.string-btn.locked {
+  color: var(--soil);
+  background: var(--bougain);
+  border-color: var(--bougain);
+  font-weight: 700;
+}
+
+.string-btn.locked .string-num {
+  opacity: 0.8;
+}
+
+.string-btn.done {
+  border-color: var(--leaf);
+}
+
+.string-btn.done:not(.locked) {
+  color: var(--leaf);
+}
+
+.tuner-alltuned {
+  font-family: var(--font-display);
+  color: var(--leaf);
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 4px 0 0;
+  text-shadow: 0 0 30px rgba(143, 201, 124, 0.4);
+}
+
+/* ---- shared mic / status ---- */
+
+.mic-btn {
+  font-family: var(--font-display);
+  font-weight: 650;
+  font-size: 1rem;
+  color: var(--cream);
+  background: rgba(16, 20, 8, 0.6);
+  border: 1px solid var(--sage);
+  border-radius: 14px;
+  padding: 12px 26px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.mic-btn:hover {
+  border-color: var(--leaf);
+  color: var(--leaf);
+}
+
+.mic-btn.live {
+  color: var(--soil);
+  background: var(--leaf);
+  border-color: var(--leaf);
+}
+
+.listen-status {
+  font-size: 1.05rem;
+  color: var(--sage);
+  min-height: 1.6em;
+  margin: 8px 0 0;
+}
+
+.listen-status strong {
+  color: var(--leaf);
+  font-weight: 600;
+}
+
+/* ---- listen mode (experimental) ---- */
 
 .listen-stage {
   display: grid;
@@ -551,22 +768,10 @@ select:focus-visible {
   }
 }
 
-.listen-status {
-  font-size: 1.05rem;
-  color: var(--faded);
-  min-height: 1.6em;
-  margin: 8px 0 0;
-}
-
-.listen-status strong {
-  color: var(--moss);
-  font-weight: 600;
-}
-
 .match-meter {
   height: 10px;
   border-radius: 5px;
-  background: var(--veil);
+  background: var(--stem);
   overflow: hidden;
   margin-top: 14px;
 }
@@ -574,37 +779,13 @@ select:focus-visible {
 .match-fill {
   height: 100%;
   border-radius: 5px;
-  background: linear-gradient(90deg, var(--petal), var(--moss));
+  background: linear-gradient(90deg, var(--bougain), var(--leaf));
   transition: width 0.15s ease-out;
-}
-
-.mic-btn {
-  font-family: var(--font-display);
-  font-weight: 650;
-  font-size: 1rem;
-  color: var(--moth);
-  background: transparent;
-  border: 1px solid var(--faded);
-  border-radius: 14px;
-  padding: 12px 26px;
-  cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.mic-btn:hover {
-  border-color: var(--moss);
-  color: var(--moss);
-}
-
-.mic-btn.live {
-  color: var(--night);
-  background: var(--moss);
-  border-color: var(--moss);
 }
 
 .heard-note {
   font-family: var(--font-mono);
-  color: var(--faded);
+  color: var(--sage);
   font-size: 0.9rem;
   margin-top: 10px;
   min-height: 1.4em;
@@ -616,36 +797,34 @@ select:focus-visible {
   font-size: clamp(3rem, 9vw, 5rem);
   line-height: 1;
   margin: 12px 0 0;
-  color: var(--moth);
+  color: var(--cream);
   transition: color 0.3s, text-shadow 0.3s;
 }
 
 .big-glow-note.hit {
-  color: var(--moss);
-  text-shadow: 0 0 70px rgba(127, 224, 178, 0.6);
+  color: var(--leaf);
+  text-shadow: 0 0 70px rgba(143, 201, 124, 0.6);
 }
 
-/* corner chord cameo (top-right chord animation) */
 .corner-cameo {
   position: sticky;
   top: 18px;
-  border: 1px solid var(--veil);
+  border: 1px solid var(--stem);
   border-radius: 18px;
   padding: 14px;
-  background: color-mix(in srgb, var(--night) 80%, transparent);
+  background: rgba(16, 20, 8, 0.75);
   transition: border-color 0.35s ease, box-shadow 0.5s ease;
 }
 
 .corner-cameo.hit {
-  border-color: var(--moss);
-  box-shadow: 0 0 46px rgba(127, 224, 178, 0.25);
+  border-color: var(--leaf);
+  box-shadow: 0 0 46px rgba(143, 201, 124, 0.25);
 }
 
 .corner-cameo .eyebrow {
   margin-bottom: 6px;
 }
 
-/* target picker in listen mode */
 .target-row {
   display: flex;
   gap: 8px;
@@ -656,9 +835,9 @@ select:focus-visible {
 .target-chip {
   font-family: var(--font-mono);
   font-size: 0.9rem;
-  border: 1px solid var(--veil);
-  background: transparent;
-  color: var(--faded);
+  border: 1px solid var(--stem);
+  background: rgba(16, 20, 8, 0.5);
+  color: var(--sage);
   border-radius: 10px;
   padding: 8px 14px;
   cursor: pointer;
@@ -666,25 +845,18 @@ select:focus-visible {
 }
 
 .target-chip:hover {
-  color: var(--moth);
-  border-color: var(--faded);
+  color: var(--cream);
+  border-color: var(--sage);
 }
 
 .target-chip.active {
-  color: var(--night);
-  background: var(--petal);
-  border-color: var(--petal);
+  color: var(--soil);
+  background: var(--bougain);
+  border-color: var(--bougain);
   font-weight: 700;
 }
 
-.footnote {
-  margin-top: 26px;
-  color: var(--faded);
-  font-size: 0.85rem;
-  text-align: center;
-}
-
-/* ---- songbook ---- */
+/* ---- songbook (experimental) ---- */
 
 .songbook-list {
   display: flex;
@@ -706,9 +878,9 @@ select:focus-visible {
   gap: 12px;
   font-family: var(--font-body);
   text-align: left;
-  color: var(--moth);
-  background: var(--night);
-  border: 1px solid var(--veil);
+  color: var(--cream);
+  background: rgba(16, 20, 8, 0.7);
+  border: 1px solid var(--stem);
   border-radius: 14px;
   padding: 14px 18px;
   cursor: pointer;
@@ -716,7 +888,7 @@ select:focus-visible {
 }
 
 .songbook-open:hover {
-  border-color: var(--petal);
+  border-color: var(--bougain);
 }
 
 .songbook-title {
@@ -726,16 +898,16 @@ select:focus-visible {
 }
 
 .songbook-meta {
-  color: var(--faded);
+  color: var(--sage);
   font-size: 0.85rem;
   font-family: var(--font-mono);
 }
 
 .songbook-delete {
   font-size: 1.2rem;
-  color: var(--faded);
+  color: var(--sage);
   background: transparent;
-  border: 1px solid var(--veil);
+  border: 1px solid var(--stem);
   border-radius: 14px;
   padding: 0 16px;
   cursor: pointer;
@@ -743,8 +915,8 @@ select:focus-visible {
 }
 
 .songbook-delete:hover {
-  color: var(--ember);
-  border-color: var(--ember);
+  color: var(--marigold);
+  border-color: var(--marigold);
 }
 
 .songbook-editor {
@@ -757,25 +929,25 @@ select:focus-visible {
 .songbook-input {
   font-family: var(--font-body);
   font-size: 1rem;
-  color: var(--moth);
-  background: var(--night);
-  border: 1px solid var(--veil);
+  color: var(--cream);
+  background: rgba(16, 20, 8, 0.8);
+  border: 1px solid var(--stem);
   border-radius: 14px;
   padding: 12px 16px;
 }
 
 .songbook-input::placeholder,
 .songbook-paste::placeholder {
-  color: color-mix(in srgb, var(--faded) 70%, transparent);
+  color: color-mix(in srgb, var(--sage) 70%, transparent);
 }
 
 .songbook-paste {
   font-family: var(--font-mono);
   font-size: 0.9rem;
   line-height: 1.5;
-  color: var(--moth);
-  background: var(--night);
-  border: 1px solid var(--veil);
+  color: var(--cream);
+  background: rgba(16, 20, 8, 0.8);
+  border: 1px solid var(--stem);
   border-radius: 14px;
   padding: 14px 16px;
   resize: vertical;
@@ -783,18 +955,18 @@ select:focus-visible {
 }
 
 .songbook-preview {
-  color: var(--faded);
+  color: var(--sage);
   font-size: 0.92rem;
   margin: 0;
 }
 
 .songbook-preview strong {
-  color: var(--moss);
+  color: var(--leaf);
   font-weight: 600;
 }
 
 .songbook-warn {
-  color: var(--ember);
+  color: var(--marigold);
   font-size: 0.85rem;
   margin: 0;
 }
@@ -805,15 +977,6 @@ select:focus-visible {
   align-items: center;
 }
 
-.play-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-/* player */
-
 .songbook-player-head {
   display: flex;
   align-items: center;
@@ -823,7 +986,7 @@ select:focus-visible {
 }
 
 .songbook-hint {
-  color: var(--faded);
+  color: var(--sage);
   font-size: 0.8rem;
   font-family: var(--font-mono);
   margin: 0 0 0 auto;
@@ -841,19 +1004,13 @@ select:focus-visible {
   top: 18px;
 }
 
-@media (max-width: 900px) {
-  .songbook-stage.with-video {
-    grid-template-columns: 1fr;
-  }
-}
-
 .video-frame {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
   border-radius: 18px;
   overflow: hidden;
-  border: 1px solid var(--veil);
+  border: 1px solid var(--stem);
   background: #000;
 }
 
@@ -879,6 +1036,9 @@ select:focus-visible {
 }
 
 @media (max-width: 900px) {
+  .songbook-stage.with-video {
+    grid-template-columns: 1fr;
+  }
   .songbook-stage.with-video .stage {
     grid-template-columns: 1fr;
   }
@@ -898,191 +1058,10 @@ select:focus-visible {
   min-width: 200px;
 }
 
-.timeline-jump {
-  cursor: pointer;
-  background: transparent;
-  font-family: var(--font-mono);
-}
-
-.timeline-jump.now {
-  background: var(--ember);
-}
-
-/* ---- tuner v2: the heart of the app ---- */
-
-.tuner-top {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-
-.tuner-tuning {
-  flex: 1;
-  min-width: 220px;
-}
-
-.a4-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  color: var(--faded);
-}
-
-.a4-input {
-  width: 64px;
-  font-family: var(--font-mono);
-  font-size: 0.9rem;
-  color: var(--moth);
-  background: var(--night);
-  border: 1px solid var(--veil);
-  border-radius: 10px;
-  padding: 8px 10px;
+.footnote {
+  margin-top: 26px;
+  color: var(--sage);
+  font-size: 0.85rem;
   text-align: center;
-}
-
-.tuner-mode-line {
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  color: var(--faded);
-  margin: 0;
-  min-height: 1.4em;
-}
-
-.tuner-mode-line strong {
-  color: var(--petal);
-}
-
-.tuner-octave {
-  font-size: 0.35em;
-  font-weight: 500;
-  color: var(--faded);
-  vertical-align: super;
-  margin-left: 0.1em;
-}
-
-.tuner-direction {
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  font-weight: 550;
-  color: var(--ember);
-  margin: 0;
-  min-height: 1.5em;
-  transition: color 0.3s ease;
-}
-
-.tuner-direction.good {
-  color: var(--moss);
-}
-
-.cents-tick {
-  position: absolute;
-  top: 22px;
-  width: 1px;
-  height: 10px;
-  background: var(--veil);
-  transform: translateX(-50%);
-}
-
-/* strobe ribbon — the Peterson nod: bands drift in the detune direction,
-   freeze when in tune */
-.strobe-ribbon {
-  width: min(420px, 90%);
-  height: 18px;
-  border-radius: 9px;
-  border: 1px solid var(--veil);
-  background-image: repeating-linear-gradient(
-    90deg,
-    transparent 0px,
-    transparent 14px,
-    color-mix(in srgb, var(--ember) 55%, transparent) 14px,
-    color-mix(in srgb, var(--ember) 55%, transparent) 28px
-  );
-  transition: opacity 0.4s ease;
-}
-
-.strobe-ribbon.in-tune {
-  background-image: repeating-linear-gradient(
-    90deg,
-    transparent 0px,
-    transparent 14px,
-    color-mix(in srgb, var(--moss) 65%, transparent) 14px,
-    color-mix(in srgb, var(--moss) 65%, transparent) 28px
-  );
-  box-shadow: 0 0 22px rgba(127, 224, 178, 0.25);
-}
-
-.string-btn {
-  cursor: pointer;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  transition: all 0.25s ease;
-}
-
-.string-btn:hover {
-  color: var(--moth);
-  border-color: var(--faded);
-}
-
-.string-num {
-  font-size: 0.7rem;
-  opacity: 0.6;
-}
-
-.string-btn.locked {
-  color: var(--night);
-  background: var(--petal);
-  border-color: var(--petal);
-  font-weight: 700;
-}
-
-.string-btn.locked .string-num {
-  opacity: 0.8;
-}
-
-.string-btn.done {
-  border-color: var(--moss);
-}
-
-.string-btn.done:not(.locked) {
-  color: var(--moss);
-}
-
-.string-check {
-  color: inherit;
-}
-
-.tuner-alltuned {
-  font-family: var(--font-display);
-  color: var(--moss);
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin: 4px 0 0;
-  text-shadow: 0 0 30px rgba(127, 224, 178, 0.4);
-}
-
-/* ---- experimental framing ---- */
-
-.mode-btn .flask {
-  font-size: 0.75em;
-  margin-left: 5px;
-  opacity: 0.7;
-}
-
-.experimental-banner {
-  font-size: 0.9rem;
-  color: var(--faded);
-  border: 1px dashed color-mix(in srgb, var(--petal) 45%, transparent);
-  border-radius: 14px;
-  padding: 12px 18px;
-  margin: 0 0 18px;
-}
-
-.experimental-banner strong {
-  color: var(--petal);
-  font-weight: 650;
+  text-shadow: 0 1px 10px rgba(16, 20, 8, 0.9);
 }

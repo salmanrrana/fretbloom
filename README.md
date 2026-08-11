@@ -1,21 +1,27 @@
 # fretbloom
 
-hear the chord · see the tab · let the room glow
+tune it and the wall blooms
 
-A chill, browser-only companion for learning guitar. No accounts, no uploads —
-everything (synthesis, pitch detection, chord matching) runs locally in Web Audio.
+A guitar tuner built around one idea: the background is a film photograph of a
+lantana-and-bougainvillea wall, desaturated and asleep. As you pull a string
+toward pitch the wall literally comes back into color — full bloom, breathing,
+when you're in tune. No accounts, no uploads — everything runs locally in Web Audio.
 
-## Modes
+## The tuner
 
-- **Play along** — pick a song, hit play. A Karplus-Strong string synth strums the
-  progression while the current chord's name, notes, fingering diagram, and ASCII
-  tab fill the left card; the upcoming chord waits on the right so your hand can
-  get there early. A timeline strip shows the whole loop.
-- **Listen** — pick a target chord, strum your real guitar. A chroma matcher scores
-  what the mic hears against the chord's pitch classes; nail it and the whole room
-  blooms mint green, with the chord shape cameo in the corner lighting up.
-- **Tune** — chromatic tuner (autocorrelation/NSDF pitch detection with octave-error
-  guards), needle in cents, string chips for standard EADGBe.
+- Autocorrelation/NSDF pitch detection with octave-error guards, ~±1 cent
+- Auto nearest-string detection, or tap a string chip to lock it
+- 8 tunings (standard, drop D, half/full step down, DADGAD, open G/D/E)
+- Tune-up/tune-down direction advice, cents needle, Peterson-style strobe ribbon
+- Per-string ✓ tracking with an all-six celebration
+- A4 calibration 432–446 Hz
+
+## The greenhouse (experimental modes)
+
+Behind the ⚘ greenhouse toggle: **Play along** (synth strums chord progressions
+with now/next tab cards), **Songbook** (paste any chord tab, link a YouTube
+video, follow along), **Listen** (strum a target chord and the wall blooms when
+you nail it). Rough edges expected.
 
 ## Develop
 

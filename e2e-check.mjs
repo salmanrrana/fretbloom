@@ -26,11 +26,13 @@ await page.goto(BASE, { waitUntil: 'networkidle' })
 // --- shell ---
 check((await page.title()) === 'Fretbloom', 'page title is Fretbloom')
 check(await page.locator('.wordmark').isVisible(), 'wordmark visible')
-check((await page.locator('.mode-btn').count()) === 4, 'four mode buttons')
+check((await page.locator('.garden-muted').count()) === 1, 'garden background present')
 
-// --- tuner is the landing page ---
+// --- tuner is the landing page, experiments hidden ---
 check(await page.locator('.tuner-note').isVisible(), 'tuner is the first page shown')
-check((await page.locator('.mode-btn.active').innerText()) === 'Tune', 'Tune button active on load')
+check((await page.locator('.experiments').count()) === 0, 'experiments hidden by default')
+await page.locator('.greenhouse-toggle').click()
+check((await page.locator('.experiments-row .target-chip').count()) === 3, 'greenhouse reveals three experiments')
 
 // --- play mode ---
 await page.getByRole('button', { name: 'Play along' }).click()
@@ -65,25 +67,25 @@ const firstChord = await page.locator('.chord-card.now .chord-name').innerText()
 check(firstChord === 'C', `song switch resets to first chord (${firstChord})`)
 
 // --- listen mode ---
-await page.getByRole('button', { name: 'Listen' }).click()
+await page.locator('.experiments-row .target-chip', { hasText: 'Listen' }).click()
 check(await page.locator('.big-glow-note').isVisible(), 'listen target chord shown')
-check((await page.locator('.target-chip').count()) === 8, 'eight target chords')
+check((await page.locator('.target-row .target-chip').count()) === 8, 'eight target chords')
 check(await page.locator('.corner-cameo .diagram').isVisible(), 'corner cameo diagram visible')
 await page.getByRole('button', { name: 'Start listening' }).click()
 await page.waitForTimeout(600)
 const listening = await page.locator('.listen-status').innerText()
 check(/Listening/.test(listening), `mic started, status = "${listening}"`)
-await page.locator('.target-chip', { hasText: 'Am' }).click()
-check(await page.locator('.target-chip.active').innerText() === 'Am', 'target switches to Am')
+await page.locator('.target-row .target-chip', { hasText: 'Am' }).click()
+check(await page.locator('.target-row .target-chip.active').innerText() === 'Am', 'target switches to Am')
 check((await page.locator('.big-glow-note').innerText()) === 'Am', 'big note follows target')
 
 // Simulate a "hit": the fake mic gives noise, so we trigger the glow path via score injection is not possible —
 // instead verify the glow element exists and starts unlit.
-check((await page.locator('.bloom.success').count()) === 1, 'success glow layer present')
+check((await page.locator('.garden-color').count()) === 1, 'bloom color layer present')
 await page.getByRole('button', { name: 'Stop listening' }).click()
 
 // --- tuner ---
-await page.getByRole('button', { name: 'Tune', exact: true }).click()
+await page.getByRole('button', { name: '← tuner' }).click()
 check(await page.locator('.tuner-note').isVisible(), 'tuner note display visible')
 check((await page.locator('.string-chip').count()) === 6, 'six string chips')
 await page.getByRole('button', { name: 'Start tuner' }).click()
@@ -92,8 +94,8 @@ const freqLine = await page.locator('.tuner-freq').innerText()
 check(/Pluck|Hz/.test(freqLine), `tuner live, readout = "${freqLine}"`)
 await page.getByRole('button', { name: 'Stop tuner' }).click()
 
-// --- audio scheduling sanity: play into an OfflineAudioContext-free check ---
-await page.getByRole('button', { name: 'Play along' }).click()
+// --- audio scheduling sanity ---
+await page.locator('.experiments-row .target-chip', { hasText: 'Play along' }).click()
 await page.locator('.play-btn').click()
 await page.waitForTimeout(500)
 const ctxRunning = await page.evaluate(async () => {

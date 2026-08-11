@@ -12,9 +12,10 @@ const errors = []
 page.on('pageerror', (e) => errors.push(e.message))
 
 await page.goto(BASE, { waitUntil: 'networkidle' })
-check((await page.locator('.mode-btn').count()) === 4, 'four mode buttons now')
+await page.locator('.greenhouse-toggle').click()
+check((await page.locator('.experiments-row .target-chip').count()) === 3, 'greenhouse holds three experiments')
 
-await page.getByRole('button', { name: 'Songbook' }).click()
+await page.locator('.experiments-row .target-chip', { hasText: 'Songbook' }).click()
 check(await page.locator('.songbook-paste').isVisible(), 'editor opens when songbook is empty')
 
 // Paste a real-world-shaped tab
@@ -65,7 +66,8 @@ check(/2/.test(tabText) && /4/.test(tabText), `F#m tab shows barre frets (${tabT
 
 // Persistence across reload
 await page.reload({ waitUntil: 'networkidle' })
-await page.getByRole('button', { name: 'Songbook' }).click()
+await page.locator('.greenhouse-toggle').click()
+await page.locator('.experiments-row .target-chip', { hasText: 'Songbook' }).click()
 check(await page.locator('.songbook-open').isVisible(), 'saved song listed after reload')
 check(/video linked/.test(await page.locator('.songbook-meta').innerText()), 'meta shows video linked')
 await page.locator('.songbook-open').click()
