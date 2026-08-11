@@ -1195,11 +1195,26 @@ textarea:focus-visible {
     justify-content: center;
   }
 
+  /* start button first — nobody should have to scroll to find the tuner */
   .mic-btn {
-    margin-top: 2.5vh;
+    order: -1;
+    margin-top: 0;
+    margin-bottom: 2vh;
     padding: 16px 44px;
     font-size: 1rem;
     width: min(320px, 86vw);
+  }
+
+  /* once live it shrinks into a quiet stop pill and gives the room back */
+  .mic-btn.live {
+    width: auto;
+    padding: 9px 22px;
+    font-size: 0.78rem;
+    color: var(--cream);
+    background: rgba(16, 20, 8, 0.55);
+    border: 1px solid rgba(244, 238, 223, 0.4);
+    box-shadow: none;
+    backdrop-filter: blur(8px);
   }
 
   .footnote {

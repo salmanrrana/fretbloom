@@ -52,10 +52,18 @@ const a4Size = await page.locator('.a4-input').evaluate((el) => parseFloat(getCo
 check(selSize >= 16, `tuning select ${selSize}px (no iOS zoom)`)
 check(a4Size >= 16, `a4 input ${a4Size}px (no iOS zoom)`)
 
+// start button must be visible in the FIRST viewport, before any scrolling
+const startBox = await page.locator('.mic-btn').boundingBox()
+check(startBox.y + startBox.height < 844, `start button above the fold (bottom at ${Math.round(startBox.y + startBox.height)}px)`)
+check(startBox.y < 420, `start button near the top (${Math.round(startBox.y)}px)`)
+
 // tap flow: start tuner via touch, note appears, bloom rises
 await page.locator('.mic-btn').tap()
 await page.waitForTimeout(2200)
 check((await page.locator('.tuner-note').innerText()).startsWith('A'), 'tap start: note reads A')
+// once live, the button shrinks out of the way
+const stopBox = await page.locator('.mic-btn').boundingBox()
+check(stopBox.width < startBox.width * 0.5, `live button shrinks (${Math.round(startBox.width)}px -> ${Math.round(stopBox.width)}px)`)
 const bloom = await page.locator('.garden-color').evaluate((el) => getComputedStyle(el).opacity)
 check(parseFloat(bloom) > 0.7, `bloom rises on mobile (${bloom})`)
 
