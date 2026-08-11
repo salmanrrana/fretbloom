@@ -26,7 +26,7 @@ await page.goto(BASE, { waitUntil: 'networkidle' })
 // --- shell ---
 check((await page.title()) === 'Fretbloom', 'page title is Fretbloom')
 check(await page.locator('.wordmark').isVisible(), 'wordmark visible')
-check((await page.locator('.mode-btn').count()) === 3, 'three mode buttons')
+check((await page.locator('.mode-btn').count()) === 4, 'four mode buttons')
 
 // --- tuner is the landing page ---
 check(await page.locator('.tuner-note').isVisible(), 'tuner is the first page shown')
