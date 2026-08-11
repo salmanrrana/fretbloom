@@ -101,7 +101,7 @@ await page.evaluate(() => window.__setMicNotes([108.11]))
 await page.waitForTimeout(1200)
 note = await page.locator('.tuner-note').innerText()
 freqLine = await page.locator('.tuner-freq').innerText()
-const centsMatch = freqLine.match(/(-?\d+)\s*cents/)
+const centsMatch = freqLine.match(/(-?\d+)¢/)
 const cents = centsMatch ? parseInt(centsMatch[1], 10) : NaN
 check(note === 'A2', `flat note still reads A2 (got "${note}")`)
 check(cents <= -25 && cents >= -35, `cents shows ~-30 flat (got ${cents})`)
