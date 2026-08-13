@@ -49,7 +49,12 @@ export default function App() {
         <div className="garden-vignette" />
       </div>
 
-      <div className="shell">
+      {/* Songbook reads like a naturalist's press: a sheet of dark glass laid
+          over the garden so type can spread across the whole screen while the
+          flowers keep breathing underneath. */}
+      {mode === 'songbook' && <div className="songbook-veil" aria-hidden="true" />}
+
+      <div className={`shell${mode === 'songbook' ? ' shell-wide' : ''}`}>
         <header className="masthead">
           <div>
             <h1 className="wordmark">fretbloom</h1>

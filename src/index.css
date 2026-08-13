@@ -39,6 +39,11 @@
   box-sizing: border-box;
 }
 
+::selection {
+  background: color-mix(in srgb, var(--marigold) 45%, transparent);
+  color: var(--cream);
+}
+
 html,
 body {
   margin: 0;
@@ -808,107 +813,346 @@ textarea:focus-visible {
   font-weight: 700;
 }
 
-/* ---- songbook (experimental) ---- */
+/* ---- songbook: the herbarium ----
+   The songbook trades the floating panel for a single sheet of dark glass
+   laid over the whole garden (.songbook-veil). Flowers stay visible and keep
+   blooming through it; type lives directly on the glass, edge to edge.
+   Saved songs read as a setlist — hairline-separated rows, not cards. */
+
+.songbook-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    168deg,
+    rgba(16, 20, 8, 0.68) 0%,
+    rgba(16, 20, 8, 0.5) 38%,
+    rgba(16, 20, 8, 0.62) 100%
+  );
+  backdrop-filter: blur(3px) saturate(1.08);
+}
+
+.shell-wide {
+  max-width: 1360px;
+}
+
+.songbook-stage {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* -- setlist -- */
+
+.setlist-head {
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: 2vh 0 10px;
+}
+
+.setlist-title {
+  font-family: var(--font-display);
+  font-size: clamp(2.4rem, 6vw, 4.2rem);
+  font-weight: 760;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin: 0;
+  color: var(--cream);
+  text-shadow: 0 2px 30px rgba(16, 20, 8, 0.9);
+}
+
+.setlist-note {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--sage);
+  margin: 0;
+  text-shadow: 0 1px 10px rgba(16, 20, 8, 0.9);
+}
 
 .songbook-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  border-top: 1px solid rgba(244, 238, 223, 0.16);
 }
 
 .songbook-item {
   display: flex;
-  gap: 8px;
   align-items: stretch;
+  border-bottom: 1px solid rgba(244, 238, 223, 0.16);
 }
 
 .songbook-open {
   flex: 1;
-  display: flex;
-  justify-content: space-between;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 4fr);
+  grid-template-areas: 'title chords' 'title meta';
   align-items: baseline;
-  gap: 12px;
+  column-gap: 24px;
+  row-gap: 2px;
   font-family: var(--font-body);
   text-align: left;
   color: var(--cream);
-  background: rgba(16, 20, 8, 0.7);
-  border: 1px solid var(--stem);
-  border-radius: 14px;
-  padding: 14px 18px;
+  background: transparent;
+  border: none;
+  padding: 22px 8px 22px 2px;
   cursor: pointer;
-  transition: border-color 0.25s ease;
+  transition: background 0.3s ease;
 }
 
 .songbook-open:hover {
-  border-color: var(--bougain);
+  background: linear-gradient(90deg, rgba(245, 166, 35, 0.09), transparent 70%);
 }
 
 .songbook-title {
+  grid-area: title;
   font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 1.05rem;
+  font-weight: 680;
+  font-size: clamp(1.4rem, 3.4vw, 2.1rem);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+  transition: color 0.25s ease, transform 0.3s cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+.songbook-open:hover .songbook-title {
+  color: var(--marigold);
+  transform: translateX(12px);
+}
+
+.songbook-chords {
+  grid-area: chords;
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  color: var(--marigold);
+  opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .songbook-meta {
+  grid-area: meta;
   color: var(--sage);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-family: var(--font-mono);
 }
 
 .songbook-delete {
-  font-size: 1.2rem;
+  font-size: 1.25rem;
+  line-height: 1;
   color: var(--sage);
   background: transparent;
-  border: 1px solid var(--stem);
-  border-radius: 14px;
-  padding: 0 16px;
+  border: none;
+  padding: 0 18px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  opacity: 0.5;
+  transition: opacity 0.2s ease, color 0.2s ease;
+}
+
+.songbook-item:hover .songbook-delete,
+.songbook-delete:focus-visible {
+  opacity: 1;
 }
 
 .songbook-delete:hover {
   color: var(--marigold);
-  border-color: var(--marigold);
+}
+
+.setlist-add {
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+  letter-spacing: 0.06em;
+  text-align: left;
+  color: var(--sage);
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed rgba(168, 179, 148, 0.4);
+  padding: 20px 2px;
+  cursor: pointer;
+  transition: color 0.25s ease, border-color 0.25s ease;
+}
+
+.setlist-add:hover {
+  color: var(--cream);
+  border-color: var(--sage);
+}
+
+.setlist-add span {
+  display: inline-block;
+  color: var(--marigold);
+  margin-right: 6px;
+  transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+.setlist-add:hover span {
+  transform: translateX(10px) rotate(90deg);
+}
+
+/* -- press bench: the add-a-song spread -- */
+
+.press-head {
+  margin: 2vh 0 20px;
+  max-width: 62ch;
+}
+
+.press-title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  font-weight: 760;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin: 0 0 8px;
+  color: var(--cream);
+  text-shadow: 0 2px 30px rgba(16, 20, 8, 0.9);
+}
+
+.press-sub {
+  color: var(--sage);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  margin: 0;
+  text-shadow: 0 1px 10px rgba(16, 20, 8, 0.9);
+}
+
+.press-bench {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(280px, 4fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.press-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .songbook-editor {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 16px;
 }
 
 .songbook-input {
   font-family: var(--font-body);
   font-size: 1rem;
   color: var(--cream);
-  background: rgba(16, 20, 8, 0.8);
-  border: 1px solid var(--stem);
-  border-radius: 14px;
-  padding: 12px 16px;
+  background: rgba(16, 20, 8, 0.55);
+  border: none;
+  border-bottom: 1px solid rgba(244, 238, 223, 0.3);
+  border-radius: 0;
+  padding: 12px 4px;
+  caret-color: var(--marigold);
+  transition: border-color 0.25s ease;
+}
+
+.songbook-input:hover,
+.songbook-input:focus {
+  border-color: rgba(244, 238, 223, 0.6);
+}
+
+.press-input-title {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 640;
+  letter-spacing: -0.01em;
 }
 
 .songbook-input::placeholder,
 .songbook-paste::placeholder {
-  color: color-mix(in srgb, var(--sage) 70%, transparent);
+  color: color-mix(in srgb, var(--sage) 82%, var(--cream));
+  opacity: 0.85;
 }
 
 .songbook-paste {
   font-family: var(--font-mono);
   font-size: 0.9rem;
-  line-height: 1.5;
+  line-height: 1.6;
   color: var(--cream);
-  background: rgba(16, 20, 8, 0.8);
-  border: 1px solid var(--stem);
-  border-radius: 14px;
-  padding: 14px 16px;
+  background: rgba(16, 20, 8, 0.6);
+  border: 1px solid rgba(244, 238, 223, 0.22);
+  border-radius: 16px;
+  padding: 18px 20px;
   resize: vertical;
-  min-height: 180px;
+  min-height: 320px;
+  caret-color: var(--marigold);
+  backdrop-filter: blur(6px);
+  transition: border-color 0.25s ease;
+}
+
+.songbook-paste:hover,
+.songbook-paste:focus {
+  border-color: rgba(244, 238, 223, 0.45);
+}
+
+.press-preview {
+  min-height: 90px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.press-empty-hint {
+  color: var(--sage);
+  font-size: 0.9rem;
+  font-style: italic;
+  margin: 0;
+  text-shadow: 0 1px 10px rgba(16, 20, 8, 0.9);
+}
+
+.press-diagrams {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+.press-shape {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: press-shape-in 0.45s cubic-bezier(0.2, 0.9, 0.2, 1) backwards;
+}
+
+@keyframes press-shape-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.press-shape figcaption {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--cream);
+  margin-top: -2px;
+}
+
+.press-cancel {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--sage);
+  background: transparent;
+  border: 1px solid rgba(168, 179, 148, 0.35);
+  border-radius: 999px;
+  padding: 11px 24px;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.press-cancel:hover {
+  color: var(--cream);
+  border-color: var(--sage);
 }
 
 .songbook-preview {
   color: var(--sage);
   font-size: 0.92rem;
+  line-height: 1.5;
   margin: 0;
 }
 
@@ -929,12 +1173,62 @@ textarea:focus-visible {
   align-items: center;
 }
 
+/* -- player chrome -- */
+
+.songbook-back {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  color: var(--sage);
+  background: transparent;
+  border: none;
+  padding: 8px 4px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  text-shadow: 0 1px 10px rgba(16, 20, 8, 0.9);
+}
+
+.songbook-back:hover {
+  color: var(--cream);
+}
+
+.player-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 3.4vw, 2.2rem);
+  font-weight: 720;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  margin: 0;
+  color: var(--cream);
+  text-shadow: 0 2px 24px rgba(16, 20, 8, 0.9);
+  overflow-wrap: anywhere;
+}
+
+.quiet-btn {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cream);
+  background: rgba(16, 20, 8, 0.5);
+  border: 1px solid rgba(244, 238, 223, 0.28);
+  border-radius: 999px;
+  padding: 11px 20px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.quiet-btn:hover {
+  border-color: rgba(244, 238, 223, 0.55);
+}
+
 .songbook-player-head {
   display: flex;
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .songbook-hint {
@@ -942,14 +1236,17 @@ textarea:focus-visible {
   font-size: 0.8rem;
   font-family: var(--font-mono);
   margin: 0 0 0 auto;
+  text-shadow: 0 1px 10px rgba(16, 20, 8, 0.9);
 }
 
-/* ---- songbook follow-along: whole sheet + live sidebar ---- */
+/* ---- songbook follow-along: whole sheet + live sidebar ----
+   The sheet has no box. Type sits straight on the veil glass and dissolves
+   at the top and bottom edges with a mask, like a scroll unrolling. */
 
 .songbook-follow {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(240px, 2fr);
-  gap: 18px;
+  grid-template-columns: minmax(0, 3fr) minmax(260px, 2fr);
+  gap: clamp(20px, 4vw, 48px);
   align-items: start;
 }
 
@@ -963,16 +1260,31 @@ textarea:focus-visible {
 
 .sheet {
   font-family: var(--font-mono);
-  font-size: clamp(0.82rem, 2.2vw, 0.95rem);
-  line-height: 1.55;
+  font-size: clamp(0.82rem, 2.2vw, 1rem);
+  line-height: 1.7;
   color: var(--cream);
-  background: rgba(16, 20, 8, 0.75);
-  border: 1px solid var(--stem);
-  border-radius: 16px;
-  padding: 18px 20px;
-  max-height: min(72vh, 900px);
+  padding: 26px 4px 40px;
+  max-height: min(76vh, 980px);
   overflow-y: auto;
   overflow-x: auto;
+  text-shadow: 0 1px 8px rgba(16, 20, 8, 0.9);
+  mask-image: linear-gradient(to bottom, transparent, black 26px, black calc(100% - 40px), transparent);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 179, 148, 0.35) transparent;
+}
+
+.sheet::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.sheet::-webkit-scrollbar-thumb {
+  background: rgba(168, 179, 148, 0.35);
+  border-radius: 3px;
+}
+
+.sheet::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .sheet-line {
@@ -1035,6 +1347,24 @@ textarea:focus-visible {
 
 .sync-btn {
   width: 100%;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cream);
+  background: rgba(16, 20, 8, 0.5);
+  border: 1px solid color-mix(in srgb, var(--bougain) 55%, transparent);
+  border-radius: 999px;
+  padding: 12px 20px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: border-color 0.2s ease, box-shadow 0.3s ease;
+}
+
+.sync-btn:hover {
+  border-color: var(--bougain);
+  box-shadow: 0 4px 24px rgba(217, 106, 158, 0.25);
 }
 
 .sync-status {
@@ -1127,6 +1457,11 @@ textarea:focus-visible {
   font-size: clamp(2rem, 4vw, 2.8rem);
 }
 
+.songbook-side .chord-card {
+  background: rgba(16, 20, 8, 0.55);
+  backdrop-filter: blur(8px);
+}
+
 @media (max-width: 900px) {
   .songbook-follow {
     grid-template-columns: 1fr;
@@ -1137,6 +1472,61 @@ textarea:focus-visible {
   }
   .sheet {
     max-height: 52vh;
+    padding-top: 16px;
+    mask-image: linear-gradient(to bottom, transparent, black 16px, black calc(100% - 28px), transparent);
+  }
+  .press-bench {
+    grid-template-columns: 1fr;
+  }
+  /* Editor on a phone: name the song first, then paste. */
+  .press-side {
+    display: contents;
+  }
+  .press-input-title { order: -3; }
+  .press-input-video { order: -2; }
+  .songbook-paste { order: -1; }
+  .songbook-paste {
+    min-height: 220px;
+  }
+}
+
+@media (max-width: 640px) {
+  .setlist-head {
+    margin-top: 0;
+    gap: 4px 14px;
+  }
+  .songbook-open {
+    grid-template-columns: 1fr;
+    grid-template-areas: 'title' 'chords' 'meta';
+    padding: 18px 4px 18px 0;
+    row-gap: 4px;
+  }
+  .songbook-chords {
+    white-space: normal;
+    font-size: 0.8rem;
+  }
+  .songbook-delete {
+    padding: 0 12px;
+    min-width: 44px;
+  }
+  /* 16px stops iOS Safari from zooming when the editor fields get focus */
+  .songbook-input,
+  .songbook-paste {
+    font-size: 16px;
+  }
+  .press-head {
+    margin-top: 0;
+  }
+  /* content scrolls clear of the fixed corner pills */
+  .songbook-stage {
+    padding-bottom: 72px;
+  }
+  .songbook-hint {
+    display: none;
+  }
+  .songbook-player-head {
+    gap: 10px;
+    margin-bottom: 8px;
   }
 }
 
@@ -1344,6 +1734,11 @@ textarea:focus-visible {
     margin-top: 20px;
     margin-bottom: 0;
     padding: 0 12px 0 64px; /* text clears the greenhouse glyph */
+  }
+
+  /* songbook adds the ← tuner pill next to the glyph; clear both */
+  .shell-wide .footnote {
+    padding-left: 150px;
     text-align: left;
     font-size: 0.72rem;
     opacity: 0.75;

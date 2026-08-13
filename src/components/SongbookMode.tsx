@@ -70,88 +70,139 @@ export function SongbookMode({ onGlow }: Props) {
     return <SongbookPlayer song={open} onBack={() => setOpenId(null)} onGlow={onGlow} onUpdate={update} />
   }
 
-  return (
-    <section className="panel" aria-label="Songbook">
-      <p className="eyebrow">Songbook · paste a tab, follow along</p>
+  // Unique chord symbols for the setlist run — the song's fingerprint.
+  const chordRun = (s: SavedSong) => {
+    const uniq = [...new Set(s.steps.map((st) => st.chord.symbol))]
+    return uniq.length > 8 ? `${uniq.slice(0, 8).join(' · ')} …` : uniq.join(' · ')
+  }
 
-      {songs.length > 0 && (
-        <div className="songbook-list">
-          {songs.map((s) => (
-            <div key={s.id} className="songbook-item">
-              <button className="songbook-open" onClick={() => setOpenId(s.id)}>
-                <span className="songbook-title">{s.title}</span>
-                <span className="songbook-meta">
-                  {s.steps.length} chords{s.youtubeId ? ' · video linked' : ''}
-                </span>
-              </button>
-              <button className="songbook-delete" onClick={() => remove(s.id)} aria-label={`Delete ${s.title}`}>
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+  const pressedOn = (t: number) =>
+    new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 
-      {!editing && (
-        <button className="play-btn" onClick={() => setEditing(true)} style={{ marginTop: songs.length ? 16 : 0 }}>
-          Add a song
-        </button>
-      )}
-
-      {editing && (
+  if (editing) {
+    return (
+      <section className="songbook-stage" aria-label="Songbook">
         <div className="songbook-editor">
-          <input
-            className="songbook-input"
-            placeholder="Song title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            aria-label="Song title"
-          />
-          <input
-            className="songbook-input"
-            placeholder="YouTube link (optional) — plays beside the chords"
-            value={videoUrl}
-            onChange={(e) => setVideoUrl(e.target.value)}
-            aria-label="YouTube link"
-          />
-          {videoUrl.trim() && !previewVideo && (
-            <p className="songbook-warn">That doesn't look like a YouTube link — the song will save without video.</p>
-          )}
-          <textarea
-            className="songbook-paste"
-            placeholder={`Paste a chord tab here. Both common formats work:\n\n${SAMPLE}\n\n…or inline: [G]Here comes the [C]sun`}
-            value={rawTab}
-            onChange={(e) => setRawTab(e.target.value)}
-            rows={10}
-            aria-label="Paste tab"
-          />
-          {preview && (
-            <p className="songbook-preview">
-              {preview.steps.length > 0 ? (
-                <>
-                  Found <strong>{preview.steps.length} chords</strong>:{' '}
-                  {[...new Set(preview.steps.map((s) => s.chord.symbol))].join(' · ')}
-                </>
-              ) : (
-                'No chords found yet — paste a tab with chord names.'
-              )}
-              {preview.unknown.length > 0 && (
-                <span className="songbook-warn"> Couldn't read: {preview.unknown.join(', ')}</span>
-              )}
+          <header className="press-head">
+            <h2 className="press-title">Press a new song</h2>
+            <p className="press-sub">
+              Paste any chord tab — chord lines over the lyrics, or inline like [G]Here comes the [C]sun. The
+              chords are read as you type.
             </p>
-          )}
-          <div className="songbook-actions">
-            <button className="play-btn" onClick={save} disabled={!preview || preview.steps.length === 0}>
-              Save song
-            </button>
-            {songs.length > 0 && (
-              <button className="mic-btn" onClick={() => setEditing(false)}>
-                Cancel
-              </button>
-            )}
+          </header>
+
+          <div className="press-bench">
+            <textarea
+              className="songbook-paste"
+              placeholder={`Paste a chord tab here…\n\n${SAMPLE}`}
+              value={rawTab}
+              onChange={(e) => setRawTab(e.target.value)}
+              rows={16}
+              aria-label="Paste tab"
+            />
+
+            <div className="press-side">
+              <input
+                className="songbook-input press-input-title"
+                placeholder="Song title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                aria-label="Song title"
+              />
+              <input
+                className="songbook-input press-input-video"
+                placeholder="YouTube link — optional, plays beside the chords"
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+                aria-label="YouTube link"
+              />
+              {videoUrl.trim() && !previewVideo && (
+                <p className="songbook-warn">
+                  That doesn't look like a YouTube link — the song will save without video.
+                </p>
+              )}
+
+              <div className="press-preview" aria-live="polite">
+                {preview ? (
+                  <>
+                    <p className="songbook-preview">
+                      {preview.steps.length > 0 ? (
+                        <>
+                          Found <strong>{preview.steps.length} chords</strong>:{' '}
+                          {[...new Set(preview.steps.map((s) => s.chord.symbol))].join(' · ')}
+                        </>
+                      ) : (
+                        'No chords found yet — paste a tab with chord names.'
+                      )}
+                      {preview.unknown.length > 0 && (
+                        <span className="songbook-warn"> Couldn't read: {preview.unknown.join(', ')}</span>
+                      )}
+                    </p>
+                    {preview.steps.length > 0 && (
+                      <div className="press-diagrams" aria-label="Chord shapes found">
+                        {[...new Map(preview.steps.map((s) => [s.chord.symbol, s.chord])).values()]
+                          .slice(0, 6)
+                          .map((chord) => (
+                            <figure key={chord.symbol} className="press-shape">
+                              <ChordDiagram shape={chord.shape} width={72} />
+                              <figcaption>{chord.symbol}</figcaption>
+                            </figure>
+                          ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="press-empty-hint">The chords you paste appear here, shapes and all.</p>
+                )}
+              </div>
+
+              <div className="songbook-actions">
+                <button className="play-btn" onClick={save} disabled={!preview || preview.steps.length === 0}>
+                  Save song
+                </button>
+                {songs.length > 0 && (
+                  <button className="press-cancel" onClick={() => setEditing(false)}>
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
-      )}
+      </section>
+    )
+  }
+
+  return (
+    <section className="songbook-stage" aria-label="Songbook">
+      <header className="setlist-head">
+        <h2 className="setlist-title">Songbook</h2>
+        <p className="setlist-note">
+          {songs.length} {songs.length === 1 ? 'song' : 'songs'} pressed — open one and play along
+        </p>
+      </header>
+
+      <div className="songbook-list">
+        {songs.map((s) => (
+          <div key={s.id} className="songbook-item">
+            <button className="songbook-open" onClick={() => setOpenId(s.id)}>
+              <span className="songbook-title">{s.title}</span>
+              <span className="songbook-chords">{chordRun(s)}</span>
+              <span className="songbook-meta">
+                {s.steps.length} chords{s.youtubeId ? ' · video linked' : ''}
+                {s.syncTimes ? ' · synced' : ''} · pressed {pressedOn(s.savedAt)}
+              </span>
+            </button>
+            <button className="songbook-delete" onClick={() => remove(s.id)} aria-label={`Delete ${s.title}`}>
+              ×
+            </button>
+          </div>
+        ))}
+
+        <button className="setlist-add" onClick={() => setEditing(true)}>
+          <span aria-hidden="true">+</span> press a new song
+        </button>
+      </div>
     </section>
   )
 }
@@ -368,20 +419,20 @@ function SongbookPlayer({
 
   if (!now) {
     return (
-      <section className="panel" aria-label={`Playing ${song.title}`}>
-        <button className="mic-btn" onClick={onBack}>← Songbook</button>
+      <section className="songbook-stage" aria-label={`Playing ${song.title}`}>
+        <button className="songbook-back" onClick={onBack}>← Songbook</button>
         <p className="songbook-warn" style={{ marginTop: 12 }}>No chords found in this song's tab.</p>
       </section>
     )
   }
 
   return (
-    <section className="panel" aria-label={`Playing ${song.title}`}>
+    <section className="songbook-stage" aria-label={`Playing ${song.title}`}>
       <div className="songbook-player-head">
-        <button className="mic-btn" onClick={onBack}>
+        <button className="songbook-back" onClick={onBack}>
           ← Songbook
         </button>
-        <p className="eyebrow" style={{ margin: 0 }}>{song.title}</p>
+        <h2 className="player-title">{song.title}</h2>
         <p className="songbook-hint">
           {recording ? 'space: mark the chord · esc: cancel' : '→ / space: next · ←: back · tap any chord'}
         </p>
@@ -416,7 +467,7 @@ function SongbookPlayer({
                   <button className="sync-redo" onClick={startRecording}>redo sync</button>
                 </p>
               ) : (
-                <button className="mic-btn sync-btn" onClick={startRecording}>
+                <button className="sync-btn" onClick={startRecording}>
                   Sync chords to the video
                 </button>
               )}
@@ -434,7 +485,7 @@ function SongbookPlayer({
                 <button className="play-btn songbook-next" onClick={tapSync}>
                   {now.chord.symbol} now
                 </button>
-                <button className="mic-btn" onClick={cancelRecording}>cancel</button>
+                <button className="quiet-btn" onClick={cancelRecording}>cancel</button>
               </div>
             </div>
           )}
@@ -456,7 +507,7 @@ function SongbookPlayer({
           {!recording && (
             <>
               <div className="songbook-nav">
-                <button className="mic-btn" onClick={() => advance(-1)} aria-label="Previous chord">
+                <button className="quiet-btn" onClick={() => advance(-1)} aria-label="Previous chord">
                   ←
                 </button>
                 <button className="play-btn songbook-next" onClick={() => advance(1)}>
@@ -464,7 +515,7 @@ function SongbookPlayer({
                 </button>
               </div>
 
-              <button className={`mic-btn songbook-listen${listening ? ' live' : ''}`} onClick={toggleMic}>
+              <button className={`quiet-btn songbook-listen${listening ? ' live' : ''}`} onClick={toggleMic}>
                 {listening ? 'Stop listening' : 'Listen to me play'}
               </button>
               {listening && (
