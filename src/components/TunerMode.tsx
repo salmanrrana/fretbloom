@@ -259,8 +259,9 @@ export function TunerMode({ onBloom }: TunerProps) {
 
       {allTuned && <p className="tuner-alltuned">all six in bloom \u2014 go make some noise</p>}
 
-      <button className={`mic-btn${live ? ' live' : ''}`} onClick={toggle}>
-        {live ? 'stop' : 'start tuner'}
+      <button className={`mic-btn tuner-mic-btn${live ? ' live' : ''}`} onClick={toggle}>
+        <span className="mic-btn-label">{live ? 'stop' : 'start tuner'}</span>
+        {!live && <span className="mic-btn-invite" aria-hidden="true">tap to wake the garden</span>}
       </button>
       {error && <p className="listen-status">{error}</p>}
     </section>

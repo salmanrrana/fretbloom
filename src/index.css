@@ -43,6 +43,7 @@ html,
 body {
   margin: 0;
   padding: 0;
+  overflow-x: hidden;
 }
 
 body {
@@ -51,7 +52,6 @@ body {
   font-family: var(--font-body);
   font-weight: 340;
   min-height: 100vh;
-  overflow-x: hidden;
 }
 
 #root {
@@ -111,7 +111,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .garden.in-tune .garden-color {
+  .garden.in-tune .garden-color,
+  .tuner-mic-btn::after {
     animation: none;
   }
 }
@@ -789,6 +790,10 @@ textarea:focus-visible {
   box-shadow: 0 10px 36px rgba(16, 20, 8, 0.6);
 }
 
+.mic-btn-invite {
+  display: none;
+}
+
 .mic-btn.live {
   color: var(--soil);
   background: var(--leaf);
@@ -1122,6 +1127,17 @@ textarea:focus-visible {
 }
 
 
+@keyframes mic-bloom-breathe {
+  0%, 100% {
+    opacity: 0.34;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.72;
+    transform: scale(1.04);
+  }
+}
+
 /* ---- mobile: the garden fills the phone ---- */
 
 @media (max-width: 640px) {
@@ -1195,19 +1211,82 @@ textarea:focus-visible {
     justify-content: center;
   }
 
-  /* start button first — nobody should have to scroll to find the tuner */
-  .mic-btn {
+  /* The first pluck begins here: a concentrated flower-bloom, not a form CTA. */
+  .tuner-mic-btn {
     order: -1;
-    margin-top: 0;
-    margin-bottom: 2vh;
-    padding: 16px 44px;
-    font-size: 1rem;
-    width: min(320px, 86vw);
+    position: relative;
+    isolation: isolate;
+    display: grid;
+    place-items: center;
+    gap: 3px;
+    width: min(338px, calc(100vw - 32px));
+    min-height: 72px;
+    margin: 4px 0 3.6vh;
+    padding: 13px 38px 11px;
+    overflow: visible;
+    color: var(--soil);
+    background: linear-gradient(105deg, #f7bc4d 0%, var(--marigold) 28%, #e98473 67%, var(--bougain) 100%);
+    border: 1px solid rgba(255, 250, 226, 0.62);
+    box-shadow:
+      0 12px 34px rgba(16, 20, 8, 0.55),
+      0 0 0 1px rgba(217, 106, 158, 0.18),
+      0 0 34px rgba(245, 166, 35, 0.38),
+      0 0 58px rgba(217, 106, 158, 0.2);
+    text-shadow: 0 1px 0 rgba(255, 248, 222, 0.28);
+  }
+
+  .tuner-mic-btn::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: -9px -8px;
+    border: 1px solid rgba(244, 238, 223, 0.25);
+    border-radius: inherit;
+    opacity: 0.78;
+  }
+
+  .tuner-mic-btn::after {
+    content: '';
+    position: absolute;
+    z-index: -2;
+    inset: -16px -14px;
+    border-radius: inherit;
+    background: radial-gradient(ellipse, rgba(245, 166, 35, 0.46), rgba(217, 106, 158, 0.2) 48%, transparent 72%);
+    filter: blur(12px);
+    pointer-events: none;
+    animation: mic-bloom-breathe 3.4s ease-in-out infinite;
+  }
+
+  .mic-btn-label {
+    font-size: clamp(1rem, 4.5vw, 1.08rem);
+    line-height: 1.1;
+    letter-spacing: 0.13em;
+  }
+
+  .mic-btn-invite {
+    display: block;
+    font-family: var(--font-body);
+    font-size: 0.67rem;
+    font-weight: 520;
+    line-height: 1.15;
+    letter-spacing: 0.07em;
+    text-transform: none;
+    opacity: 0.72;
+  }
+
+  .tuner-mic-btn:hover {
+    box-shadow:
+      0 14px 38px rgba(16, 20, 8, 0.58),
+      0 0 0 1px rgba(217, 106, 158, 0.22),
+      0 0 42px rgba(245, 166, 35, 0.46),
+      0 0 68px rgba(217, 106, 158, 0.26);
   }
 
   /* once live it shrinks into a quiet stop pill and gives the room back */
-  .mic-btn.live {
+  .tuner-mic-btn.live {
     width: auto;
+    min-height: 44px;
+    margin: 4px 0 2vh;
     padding: 9px 22px;
     font-size: 0.78rem;
     color: var(--cream);
@@ -1215,6 +1294,16 @@ textarea:focus-visible {
     border: 1px solid rgba(244, 238, 223, 0.4);
     box-shadow: none;
     backdrop-filter: blur(8px);
+    animation: none;
+  }
+
+  .tuner-mic-btn.live::before,
+  .tuner-mic-btn.live::after {
+    content: none;
+  }
+
+  .tuner-mic-btn.live .mic-btn-label {
+    font-size: inherit;
   }
 
   .footnote {
@@ -1270,4 +1359,5 @@ textarea:focus-visible {
   .cents-scale { margin-top: 4px; height: 48px; }
   .tuner-strings { margin-top: 8px; }
   .mic-btn { margin-top: 10px; padding: 10px 28px; }
+  .tuner-mic-btn { min-height: 44px; }
 }
