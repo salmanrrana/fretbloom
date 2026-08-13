@@ -1,13 +1,11 @@
 import { useCallback, useRef, useState } from 'react'
-import { PlayMode } from './components/PlayMode'
 import { TunerMode } from './components/TunerMode'
 import { ListenMode } from './components/ListenMode'
 import { SongbookMode } from './components/SongbookMode'
 
-type Mode = 'tune' | 'play' | 'songbook' | 'listen'
+type Mode = 'tune' | 'songbook' | 'listen'
 
 const EXPERIMENTS: { id: Mode; label: string }[] = [
-  { id: 'play', label: 'Play along' },
   { id: 'songbook', label: 'Songbook' },
   { id: 'listen', label: 'Listen' },
 ]
@@ -60,8 +58,7 @@ export default function App() {
         </header>
 
         {mode === 'tune' && <TunerMode onBloom={onBloom} />}
-        {mode === 'play' && <PlayMode />}
-        {mode === 'songbook' && <SongbookMode />}
+        {mode === 'songbook' && <SongbookMode onGlow={onGlow} />}
         {mode === 'listen' && <ListenMode onGlow={onGlow} />}
 
         <p className="footnote">

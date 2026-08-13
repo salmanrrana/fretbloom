@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { parseTab, youtubeId } from '../data/tabParser'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { parseTab, youtubeId, type SheetLine } from '../data/tabParser'
 import { loadSongbook, saveSongbook, type SavedSong } from '../data/songbook'
-import { chordNoteNames } from '../data/chords'
+import { chordNoteNames, chordPitchClasses } from '../data/chords'
+import { engine } from '../audio/engine'
+import { chromaEnergies, chordMatchScore } from '../audio/pitch'
+import { useYouTubeClock } from './useYouTubeClock'
 import { ChordDiagram } from './ChordDiagram'
 import { TabBlock } from './TabBlock'
 
@@ -12,7 +15,11 @@ Em       D
 [Chorus]
 C   G   Am  F`
 
-export function SongbookMode() {
+interface Props {
+  onGlow: (lit: boolean) => void
+}
+
+export function SongbookMode({ onGlow }: Props) {
   const [songs, setSongs] = useState<SavedSong[]>(() => loadSongbook())
   const [openId, setOpenId] = useState<string | null>(null)
   const [editing, setEditing] = useState(songs.length === 0)
@@ -55,8 +62,12 @@ export function SongbookMode() {
     if (openId === id) setOpenId(null)
   }
 
+  const update = (updated: SavedSong) => {
+    persist(songs.map((s) => (s.id === updated.id ? updated : s)))
+  }
+
   if (open) {
-    return <SongbookPlayer song={open} onBack={() => setOpenId(null)} />
+    return <SongbookPlayer song={open} onBack={() => setOpenId(null)} onGlow={onGlow} onUpdate={update} />
   }
 
   return (
@@ -145,9 +156,36 @@ export function SongbookMode() {
   )
 }
 
-function SongbookPlayer({ song, onBack }: { song: SavedSong; onBack: () => void }) {
+function SongbookPlayer({
+  song,
+  onBack,
+  onGlow,
+  onUpdate,
+}: {
+  song: SavedSong
+  onBack: () => void
+  onGlow: (lit: boolean) => void
+  onUpdate: (song: SavedSong) => void
+}) {
+  // Re-parse the original paste so the whole sheet (lyrics, staff lines,
+  // sections) is available — older saves only stored the chord steps.
+  const parsed = useMemo(() => parseTab(song.rawTab), [song.rawTab])
+  const steps = parsed.steps
   const [idx, setIdx] = useState(0)
-  const steps = song.steps
+  const [listening, setListening] = useState(false)
+  const [micError, setMicError] = useState<string | null>(null)
+  const [match, setMatch] = useState(0)
+  const [hit, setHit] = useState(false)
+  const sheetRef = useRef<HTMLDivElement>(null)
+
+  // --- video sync ---
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const clock = useYouTubeClock(iframeRef, Boolean(song.youtubeId))
+  const [recording, setRecording] = useState(false)
+  const [draft, setDraft] = useState<number[]>([])
+  const syncTimes = song.syncTimes && song.syncTimes.length >= steps.length ? song.syncTimes : null
+  const synced = Boolean(syncTimes)
+
   const now = steps[idx]
   const next = steps[(idx + 1) % steps.length]
 
@@ -156,20 +194,186 @@ function SongbookPlayer({ song, onBack }: { song: SavedSong; onBack: () => void 
     [steps.length],
   )
 
+  /** One tap while recording: stamp the video time on the current step. */
+  const tapSync = useCallback(() => {
+    const t = clock.time()
+    if (t == null) return
+    const nextDraft = [...draft, t]
+    if (nextDraft.length >= steps.length) {
+      onUpdate({ ...song, syncTimes: nextDraft })
+      setRecording(false)
+      setDraft([])
+      setIdx(0)
+      clock.pause()
+      return
+    }
+    setDraft(nextDraft)
+    setIdx(nextDraft.length)
+  }, [clock, draft, steps.length, song, onUpdate])
+
+  const startRecording = () => {
+    setListening(false)
+    engine.mic.stop()
+    setRecording(true)
+    setDraft([])
+    setIdx(0)
+    clock.seek(0)
+    clock.play()
+  }
+
+  const cancelRecording = useCallback(() => {
+    setRecording(false)
+    setDraft([])
+    setIdx(0)
+    clock.pause()
+  }, [clock])
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       if (e.key === 'ArrowRight' || e.key === ' ') {
         e.preventDefault()
-        advance(1)
+        if (recording) tapSync()
+        else advance(1)
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault()
-        advance(-1)
+        if (!recording) advance(-1)
+      } else if (e.key === 'Escape' && recording) {
+        cancelRecording()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [advance])
+  }, [advance, recording, tapSync, cancelRecording])
+
+  // Video follow: while the video plays a synced song, the sheet tracks the
+  // video clock — the same map lets sheet taps seek the video.
+  useEffect(() => {
+    if (!synced || recording || !syncTimes) return
+    let raf = 0
+    const tick = () => {
+      if (clock.isPlaying()) {
+        const t = clock.time()
+        if (t != null) {
+          let i = 0
+          while (i + 1 < syncTimes.length && syncTimes[i + 1] <= t) i++
+          setIdx(i)
+        }
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [synced, recording, syncTimes, clock])
+
+  const jumpTo = useCallback(
+    (i: number) => {
+      setIdx(i)
+      if (syncTimes && !recording) clock.seek(syncTimes[i])
+    },
+    [syncTimes, recording, clock],
+  )
+
+  // Keep the lit chord in view as the song moves along.
+  useEffect(() => {
+    sheetRef.current
+      ?.querySelector(`[data-step="${idx}"]`)
+      ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [idx])
+
+  // Mic follow-along: match the mic against the current chord; when it rings,
+  // bloom the wall and step forward on its own.
+  useEffect(() => {
+    if (!listening || !now) return
+    const pcs = chordPitchClasses(now.chord.shape)
+    let raf = 0
+    let lastChroma = 0
+    let smooth = 0
+    let framesAbove = 0
+    // Ignore the first beat after a step change so the tail of the previous
+    // chord (often sharing notes) can't instantly trigger the next one.
+    const armedAt = performance.now() + 700
+    let advanced = false
+
+    const tick = () => {
+      const frame = engine.mic.frame()
+      const t = performance.now()
+      if (frame && t - lastChroma > 100) {
+        lastChroma = t
+        let rms = 0
+        for (let i = 0; i < frame.length; i++) rms += frame[i] * frame[i]
+        rms = Math.sqrt(rms / frame.length)
+        if (rms > 0.01) {
+          const score = chordMatchScore(chromaEnergies(frame, engine.ctx.sampleRate), pcs)
+          smooth = smooth * 0.5 + score * 0.5
+          // Same thresholds as Listen mode: real strums plateau ~0.65-0.8,
+          // wrong chords sit below 0.5; two frames filters pick transients.
+          if (t > armedAt && smooth > 0.58) {
+            framesAbove++
+            if (framesAbove >= 2 && !advanced) {
+              advanced = true
+              setHit(true)
+              onGlow(true)
+              window.setTimeout(() => advance(1), 650)
+            }
+          } else {
+            framesAbove = 0
+          }
+        } else {
+          smooth *= 0.9
+        }
+        setMatch(smooth)
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [listening, now, advance, onGlow])
+
+  // Let the bloom fade shortly after each hit.
+  useEffect(() => {
+    if (!hit) return
+    const t = window.setTimeout(() => {
+      setHit(false)
+      onGlow(false)
+    }, 900)
+    return () => window.clearTimeout(t)
+  }, [hit, onGlow])
+
+  useEffect(
+    () => () => {
+      engine.mic.stop()
+      onGlow(false)
+    },
+    [onGlow],
+  )
+
+  const toggleMic = async () => {
+    if (listening) {
+      engine.mic.stop()
+      setListening(false)
+      setMatch(0)
+      setHit(false)
+      onGlow(false)
+      return
+    }
+    try {
+      setMicError(null)
+      await engine.mic.start()
+      setListening(true)
+    } catch {
+      setMicError('Microphone access was blocked. Allow the mic in your browser bar, then try again.')
+    }
+  }
+
+  if (!now) {
+    return (
+      <section className="panel" aria-label={`Playing ${song.title}`}>
+        <button className="mic-btn" onClick={onBack}>← Songbook</button>
+        <p className="songbook-warn" style={{ marginTop: 12 }}>No chords found in this song's tab.</p>
+      </section>
+    )
+  }
 
   return (
     <section className="panel" aria-label={`Playing ${song.title}`}>
@@ -178,66 +382,133 @@ function SongbookPlayer({ song, onBack }: { song: SavedSong; onBack: () => void 
           ← Songbook
         </button>
         <p className="eyebrow" style={{ margin: 0 }}>{song.title}</p>
-        <p className="songbook-hint">→ / space: next chord · ←: back</p>
+        <p className="songbook-hint">
+          {recording ? 'space: mark the chord · esc: cancel' : '→ / space: next · ←: back · tap any chord'}
+        </p>
       </div>
 
-      <div className={`songbook-stage${song.youtubeId ? ' with-video' : ''}`}>
-        {song.youtubeId && (
-          <div className="video-frame">
-            <iframe
-              src={`https://www.youtube-nocookie.com/embed/${song.youtubeId}`}
-              title={`${song.title} video`}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          </div>
-        )}
+      <div className="songbook-follow">
+        <div className="sheet" ref={sheetRef} aria-label="Full tab">
+          {parsed.lines.map((line, li) => (
+            <SheetLineView key={li} line={line} idx={idx} onJump={jumpTo} />
+          ))}
+        </div>
 
-        <div className="stage">
-          <div className="chord-card now">
+        <aside className="songbook-side">
+          {song.youtubeId && (
+            <div className="video-frame">
+              <iframe
+                ref={iframeRef}
+                src={`https://www.youtube-nocookie.com/embed/${song.youtubeId}?enablejsapi=1`}
+                title={`${song.title} video`}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          )}
+
+          {song.youtubeId && !recording && (
+            <div className="sync-row">
+              {synced ? (
+                <p className="sync-status" aria-live="polite">
+                  <span className="sync-dot" aria-hidden="true" />
+                  synced to video — press play and the chords follow
+                  <button className="sync-redo" onClick={startRecording}>redo sync</button>
+                </p>
+              ) : (
+                <button className="mic-btn sync-btn" onClick={startRecording}>
+                  Sync chords to the video
+                </button>
+              )}
+            </div>
+          )}
+
+          {recording && (
+            <div className="sync-recording" aria-live="polite">
+              <p className="sync-status recording">
+                <span className="sync-dot rec" aria-hidden="true" />
+                video is playing — tap when <strong>{now.chord.symbol}</strong> hits
+                <span className="sync-count">{draft.length}/{steps.length}</span>
+              </p>
+              <div className="songbook-nav">
+                <button className="play-btn songbook-next" onClick={tapSync}>
+                  {now.chord.symbol} now
+                </button>
+                <button className="mic-btn" onClick={cancelRecording}>cancel</button>
+              </div>
+            </div>
+          )}
+
+          <div className={`chord-card now${hit ? ' hit' : ''}`}>
             <span className="role">{now.section ? `${now.section} · now` : 'Now'}</span>
             <h2 className="chord-name">{now.chord.symbol}</h2>
             {now.chord.approx && <p className="songbook-warn">closest playable shape</p>}
             <p className="chord-notes">
               notes: <strong>{chordNoteNames(now.chord.shape).join(' · ')}</strong>
             </p>
-            <ChordDiagram shape={now.chord.shape} accent="var(--ember)" />
+            <ChordDiagram shape={now.chord.shape} accent={hit ? 'var(--moss)' : 'var(--ember)'} />
             <TabBlock shape={now.chord.shape} />
-          </div>
-
-          <span className="stage-arrow" aria-hidden="true">→</span>
-
-          <div className="chord-card next">
-            <span className="role">{next.section && next.section !== now.section ? `${next.section} · next` : 'Up next'}</span>
-            <h2 className="chord-name">{next.chord.symbol}</h2>
             <p className="chord-notes">
-              notes: <strong>{chordNoteNames(next.chord.shape).join(' · ')}</strong>
+              up next: <strong>{next.chord.symbol}</strong>
             </p>
-            <ChordDiagram shape={next.chord.shape} accent="var(--petal)" />
-            <TabBlock shape={next.chord.shape} />
           </div>
-        </div>
-      </div>
 
-      <div className="songbook-nav">
-        <button className="mic-btn" onClick={() => advance(-1)} aria-label="Previous chord">
-          ← back
-        </button>
-        <button className="play-btn songbook-next" onClick={() => advance(1)}>
-          next chord →
-        </button>
-      </div>
+          {!recording && (
+            <>
+              <div className="songbook-nav">
+                <button className="mic-btn" onClick={() => advance(-1)} aria-label="Previous chord">
+                  ←
+                </button>
+                <button className="play-btn songbook-next" onClick={() => advance(1)}>
+                  next →
+                </button>
+              </div>
 
-      <div className="timeline" aria-label="Full chord sequence">
-        {steps.map((step, i) => {
-          const cls = i === idx ? 'timeline-chip now' : i === (idx + 1) % steps.length ? 'timeline-chip next' : 'timeline-chip'
-          return (
-            <button key={i} className={`${cls} timeline-jump`} onClick={() => setIdx(i)}>
-              {step.chord.symbol}
-            </button>
-          )
-        })}
+              <button className={`mic-btn songbook-listen${listening ? ' live' : ''}`} onClick={toggleMic}>
+                {listening ? 'Stop listening' : 'Listen to me play'}
+              </button>
+              {listening && (
+                <div className="match-meter" role="progressbar" aria-valuenow={Math.round(match * 100)} aria-valuemin={0} aria-valuemax={100} aria-label="Chord match">
+                  <div className="match-fill" style={{ width: `${Math.min(100, match * 120)}%` }} />
+                </div>
+              )}
+              <p className="listen-status songbook-listen-status">
+                {micError
+                  ? micError
+                  : listening
+                    ? hit
+                      ? <strong>{now.chord.symbol} is ringing — moving on.</strong>
+                      : `Strum ${now.chord.symbol} — the sheet follows you.`
+                    : 'Turn the mic on and the song advances as you play.'}
+              </p>
+            </>
+          )}
+        </aside>
       </div>
     </section>
+  )
+}
+
+function SheetLineView({ line, idx, onJump }: { line: SheetLine; idx: number; onJump: (i: number) => void }) {
+  if (line.kind === 'blank') return <div className="sheet-line blank">&nbsp;</div>
+  return (
+    <div className={`sheet-line ${line.kind}`}>
+      {line.segments.map((seg, si) =>
+        seg.kind === 'chord' && seg.step >= 0 ? (
+          <button
+            key={si}
+            data-step={seg.step}
+            className={`sheet-chord${seg.step === idx ? ' now' : ''}${seg.step === idx + 1 ? ' next' : ''}`}
+            onClick={() => onJump(seg.step)}
+            aria-label={`Jump to ${seg.text}`}
+            aria-current={seg.step === idx ? 'step' : undefined}
+          >
+            {seg.text}
+          </button>
+        ) : (
+          <span key={si}>{seg.text}</span>
+        ),
+      )}
+    </div>
   )
 }

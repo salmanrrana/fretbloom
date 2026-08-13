@@ -113,6 +113,36 @@ await page.evaluate(() => window.__setMicNotes([329.63]))
 await page.waitForTimeout(1200)
 note = await page.locator('.tuner-note').innerText()
 check(note === 'E4', `high e reads E4 (got "${note}")`)
+await page.getByRole('button', { name: /^stop$/i }).click()
+await page.evaluate(() => window.__setMicNotes([]))
+
+// ---------- SONGBOOK FOLLOW MODE ----------
+// Save a two-chord song, turn the mic follow on, strum G — the sheet should
+// hear it, bloom, and advance to D on its own.
+await page.locator('.greenhouse-toggle').click()
+await page.locator('.experiments-row .target-chip', { hasText: 'Songbook' }).click()
+await page.locator('.songbook-input').first().fill('Follow test')
+await page.locator('.songbook-paste').fill('[Verse]\nG   D\nHello world')
+await page.getByRole('button', { name: 'Save song' }).click()
+await page.getByRole('button', { name: 'Listen to me play' }).click()
+await page.waitForTimeout(400)
+check((await page.locator('.sheet-chord.now').innerText()) === 'G', 'follow mode starts on G')
+
+// G major open chord voicing
+await page.evaluate(() => window.__setMicNotes([98.0, 123.47, 146.83, 196.0, 246.94, 392.0]))
+await page.waitForTimeout(2500)
+check((await page.locator('.sheet-chord.now').innerText()) === 'D', 'strumming G auto-advances the sheet to D')
+check((await page.locator('.chord-card.now .chord-name').innerText()) === 'D', 'sidebar card follows to D')
+
+// Keep ringing G at a D target — must NOT advance again.
+await page.waitForTimeout(2000)
+check((await page.locator('.sheet-chord.now').innerText()) === 'D', 'wrong chord does not advance past D')
+await page.evaluate(() => window.__setMicNotes([]))
+await page.getByRole('button', { name: 'Stop listening' }).click()
+
+// Clean up the saved song so reruns start fresh.
+await page.getByRole('button', { name: '← Songbook' }).click()
+await page.locator('.songbook-delete').click()
 
 await browser.close()
 console.log(failures === 0 ? '\nALL AUDIO CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`)

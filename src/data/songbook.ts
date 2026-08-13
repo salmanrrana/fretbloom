@@ -8,6 +8,12 @@ export interface SavedSong {
   youtubeId: string | null
   steps: ParsedStep[]
   savedAt: number
+  /**
+   * Video sync map from a tap-through: syncTimes[i] is the video time in
+   * seconds where step i starts. Absent (or shorter than steps) until the
+   * user records one.
+   */
+  syncTimes?: number[]
 }
 
 const KEY = 'fretbloom.songbook.v1'

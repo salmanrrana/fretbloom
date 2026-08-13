@@ -1,5 +1,5 @@
 // End-to-end smoke test: loads the app in headless Chromium with a fake mic,
-// exercises all three modes, and verifies audio actually gets scheduled.
+// exercises all modes, and verifies the audio pipeline is alive.
 import { chromium } from 'playwright'
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:5199'
@@ -32,42 +32,9 @@ check((await page.locator('.garden-muted').count()) === 1, 'garden background pr
 check(await page.locator('.tuner-note').isVisible(), 'tuner is the first page shown')
 check((await page.locator('.experiments').count()) === 0, 'experiments hidden by default')
 await page.locator('.greenhouse-toggle').click()
-check((await page.locator('.experiments-row .target-chip').count()) === 3, 'greenhouse reveals three experiments')
+check((await page.locator('.experiments-row .target-chip').count()) === 2, 'greenhouse reveals two experiments')
 
-// --- play mode ---
-await page.getByRole('button', { name: 'Play along' }).click()
-check(await page.locator('.chord-card.now .chord-name').isVisible(), 'current chord shown')
-check(await page.locator('.chord-card.next .chord-name').isVisible(), 'next chord shown')
-check((await page.locator('.chord-card .diagram').count()) === 2, 'two chord diagrams (now + next)')
-check((await page.locator('.tab-block').count()) === 2, 'two tab blocks (now + next)')
-const tabText = await page.locator('.chord-card.now .tab-block').innerText()
-check(/e\|/.test(tabText) && /E\|/.test(tabText), 'tab has all six string rows')
-check(await page.locator('.chord-notes').first().isVisible(), 'note names listed')
-
-// Start playback, confirm the scheduler advances chords
-await page.locator('.song-select').selectOption('moth-motel') // 132bpm, 2-beat steps ≈ 0.9s each
-await page.locator('.play-btn').click()
-await page.waitForTimeout(300)
-const chord1 = await page.locator('.chord-card.now .chord-name').innerText()
-const audioState = await page.evaluate(() => {
-  // AudioContext should exist and be running after clicking play
-  return { contexts: performance.now() > 0 } // placeholder; real check below via currentTime
-})
-await page.waitForTimeout(1400)
-const chord2 = await page.locator('.chord-card.now .chord-name').innerText()
-check(chord1 !== chord2, `playback advances chords (${chord1} -> ${chord2})`)
-const progressWidth = await page.locator('.beat-fill').evaluate((el) => el.style.width)
-check(progressWidth !== '' && progressWidth !== '0%', `beat progress animating (${progressWidth})`)
-await page.locator('.play-btn').click()
-check((await page.locator('.play-btn').innerText()) === 'Play', 'stop returns button to Play')
-
-// Song switching updates the stage
-await page.locator('.song-select').selectOption('let-it-hum')
-const firstChord = await page.locator('.chord-card.now .chord-name').innerText()
-check(firstChord === 'C', `song switch resets to first chord (${firstChord})`)
-
-// --- listen mode (greenhouse closes after each pick, reopen it) ---
-await page.locator('.greenhouse-toggle').click()
+// --- listen mode ---
 await page.locator('.experiments-row .target-chip', { hasText: 'Listen' }).click()
 check(await page.locator('.big-glow-note').isVisible(), 'listen target chord shown')
 check((await page.locator('.target-row .target-chip').count()) === 8, 'eight target chords')
@@ -79,9 +46,6 @@ check(/Listening/.test(listening), `mic started, status = "${listening}"`)
 await page.locator('.target-row .target-chip', { hasText: 'Am' }).click()
 check(await page.locator('.target-row .target-chip.active').innerText() === 'Am', 'target switches to Am')
 check((await page.locator('.big-glow-note').innerText()) === 'Am', 'big note follows target')
-
-// Simulate a "hit": the fake mic gives noise, so we trigger the glow path via score injection is not possible —
-// instead verify the glow element exists and starts unlit.
 check((await page.locator('.garden-color').count()) === 1, 'bloom color layer present')
 await page.getByRole('button', { name: 'Stop listening' }).click()
 
@@ -95,14 +59,8 @@ const modeLine = await page.locator('.tuner-mode-line').innerText()
 check(/listening/.test(modeLine), `tuner live, mode line = "${modeLine}"`)
 await page.getByRole('button', { name: /^stop$/i }).click()
 
-// --- audio scheduling sanity ---
-await page.locator('.greenhouse-toggle').click()
-await page.locator('.experiments-row .target-chip', { hasText: 'Play along' }).click()
-await page.locator('.play-btn').click()
-await page.waitForTimeout(500)
+// --- audio pipeline sanity ---
 const ctxRunning = await page.evaluate(async () => {
-  // grab the app's AudioContext via the constructor patch trick: instead,
-  // just verify a new context can run and time advances (environment sanity)
   const c = new AudioContext()
   const t0 = c.currentTime
   await new Promise((r) => setTimeout(r, 200))
@@ -111,12 +69,11 @@ const ctxRunning = await page.evaluate(async () => {
   return advanced
 })
 check(ctxRunning, 'AudioContext clock advances (audio pipeline live)')
-await page.locator('.play-btn').click()
 
 // --- responsive: mobile viewport ---
 await page.setViewportSize({ width: 390, height: 844 })
 await page.waitForTimeout(300)
-check(await page.locator('.chord-card.now').isVisible(), 'mobile: current chord still visible')
+check(await page.locator('.tuner-note').isVisible(), 'mobile: tuner still visible')
 const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
 check(overflow <= 1, `mobile: no horizontal overflow (${overflow}px)`)
 
