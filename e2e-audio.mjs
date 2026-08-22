@@ -108,11 +108,27 @@ check(note === 'A2', `flat note still reads A2 (got "${note}")`)
 check(cents <= -25 && cents >= -35, `cents shows ~-30 flat (got ${cents})`)
 check((await page.locator('.tuner-note.in-tune').count()) === 0, 'no in-tune glow when flat')
 
+// Phone mics often hear the second harmonic more strongly than the root.
+await page.evaluate(() => window.__setMicNotes([220.0]))
+await page.waitForTimeout(1200)
+note = await page.locator('.tuner-note').innerText()
+freqLine = await page.locator('.tuner-freq').innerText()
+check(note === 'A2', `strong A2 harmonic resolves to the open string (got "${note}")`)
+check(/^110\./.test(freqLine), `harmonic reading reports the root frequency (${freqLine})`)
+
 // High e string E4
 await page.evaluate(() => window.__setMicNotes([329.63]))
 await page.waitForTimeout(1200)
 note = await page.locator('.tuner-note').innerText()
 check(note === 'E4', `high e reads E4 (got "${note}")`)
+
+// Re-entrant ukulele presets use physical string order rather than sorting by pitch.
+await page.getByLabel('Choose a tuning').selectOption('ukulele-standard')
+await page.evaluate(() => window.__setMicNotes([392.0]))
+await page.waitForTimeout(1200)
+note = await page.locator('.tuner-note').innerText()
+check(note === 'G4', `ukulele high G reads G4 (got "${note}")`)
+check((await page.locator('.string-btn').count()) === 4, 'ukulele preset shows four strings')
 await page.getByRole('button', { name: /^stop$/i }).click()
 await page.evaluate(() => window.__setMicNotes([]))
 

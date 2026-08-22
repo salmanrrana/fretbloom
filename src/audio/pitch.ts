@@ -1,57 +1,84 @@
+interface PitchRange {
+  minFrequency?: number
+  maxFrequency?: number
+}
+
 /**
- * Monophonic pitch detection via normalized autocorrelation (NSDF-style),
- * good for single plucked strings — powers the tuner and note matching.
+ * Monophonic pitch detection via normalized autocorrelation (NSDF-style).
+ * Phone microphones tend to be quiet, remove bass, and add a small DC offset,
+ * so the frame is centered and downsampled before the longer correlation pass.
  */
-export function detectPitch(buf: Float32Array, sampleRate: number): number | null {
-  const n = buf.length
+export function detectPitch(
+  buf: Float32Array,
+  sampleRate: number,
+  { minFrequency = 70, maxFrequency = 1400 }: PitchRange = {},
+): number | null {
+  // Halving 44.1/48 kHz input keeps enough detail for strings while cutting
+  // the autocorrelation work by roughly four — important on mobile Safari.
+  const stride = sampleRate >= 40000 ? 2 : 1
+  const rate = sampleRate / stride
+  const n = Math.floor(buf.length / stride)
+  const signal = new Float32Array(n)
+
+  let mean = 0
+  for (let i = 0; i < n; i++) {
+    let sample = 0
+    for (let j = 0; j < stride; j++) sample += buf[i * stride + j]
+    signal[i] = sample / stride
+    mean += signal[i]
+  }
+  mean /= n
 
   let rms = 0
-  for (let i = 0; i < n; i++) rms += buf[i] * buf[i]
+  for (let i = 0; i < n; i++) {
+    signal[i] -= mean
+    rms += signal[i] * signal[i]
+  }
   rms = Math.sqrt(rms / n)
-  if (rms < 0.008) return null // too quiet to trust
+  if (rms < 0.003) return null
 
-  // Guitar range: ~70 Hz (drop D margin) to ~1400 Hz.
-  const maxLag = Math.floor(sampleRate / 70)
-  const minLag = Math.floor(sampleRate / 1400)
-  const size = Math.min(n, maxLag * 2)
+  const maxLag = Math.min(n - 2, Math.floor(rate / minFrequency))
+  const minLag = Math.max(2, Math.floor(rate / maxFrequency))
+  if (minLag >= maxLag) return null
+
+  // Prefix energy makes each NSDF normalization constant-time, leaving only
+  // the correlation itself in the inner loop.
+  const energy = new Float64Array(n + 1)
+  for (let i = 0; i < n; i++) energy[i + 1] = energy[i] + signal[i] * signal[i]
 
   const nsdf = new Float32Array(maxLag + 1)
   for (let lag = minLag; lag <= maxLag; lag++) {
+    const overlap = n - lag
     let acf = 0
-    let norm = 0
-    for (let i = 0; i + lag < size; i++) {
-      acf += buf[i] * buf[i + lag]
-      norm += buf[i] * buf[i] + buf[i + lag] * buf[i + lag]
-    }
+    for (let i = 0; i < overlap; i++) acf += signal[i] * signal[i + lag]
+    const norm = energy[overlap] + energy[n] - energy[lag]
     nsdf[lag] = norm > 0 ? (2 * acf) / norm : 0
   }
 
-  // Collect local maxima after the first zero crossing, then take the FIRST
-  // peak within 90% of the tallest (McLeod) — avoids octave-down errors where
-  // a later, marginally-taller peak at 2x/3x the period wins.
+  // Take the first peak close to the tallest one. This favors the fundamental
+  // over a later multiple without trusting weak room noise.
   let start = minLag
   while (start <= maxLag && nsdf[start] > 0) start++
-  const peaks: { lag: number; val: number }[] = []
-  for (let lag = start; lag < maxLag; lag++) {
+  const peaks: { lag: number; value: number }[] = []
+  for (let lag = Math.max(start, minLag + 1); lag < maxLag; lag++) {
     if (nsdf[lag] > nsdf[lag - 1] && nsdf[lag] >= nsdf[lag + 1]) {
-      peaks.push({ lag, val: nsdf[lag] })
+      peaks.push({ lag, value: nsdf[lag] })
     }
   }
   if (peaks.length === 0) return null
-  const tallest = Math.max(...peaks.map((p) => p.val))
-  if (tallest < 0.8) return null
-  const chosen = peaks.find((p) => p.val >= 0.9 * tallest)!
-  const bestLag = chosen.lag
+  const tallest = Math.max(...peaks.map((peak) => peak.value))
+  if (tallest < 0.75) return null
+  const chosen = peaks.find((peak) => peak.value >= 0.9 * tallest)
+  if (!chosen) return null
 
   // Parabolic interpolation for sub-sample lag precision.
-  const a = nsdf[bestLag - 1]
-  const b = nsdf[bestLag]
-  const c = nsdf[bestLag + 1]
-  const denom = a - 2 * b + c
-  const shift = denom !== 0 ? (0.5 * (a - c)) / denom : 0
-  const lag = bestLag + shift
+  const a = nsdf[chosen.lag - 1]
+  const b = nsdf[chosen.lag]
+  const c = nsdf[chosen.lag + 1]
+  const denominator = a - 2 * b + c
+  const shift = denominator !== 0 ? (0.5 * (a - c)) / denominator : 0
 
-  return sampleRate / lag
+  return rate / (chosen.lag + shift)
 }
 
 /**

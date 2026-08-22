@@ -7,7 +7,14 @@ const check = (ok, label) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${label}`); 
 const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] })
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
 await page.addInitScript(() => {
-  navigator.mediaDevices.getUserMedia = async () => {
+  window.__lastMicConstraints = null
+  navigator.mediaDevices.enumerateDevices = async () => [
+    { kind: 'audioinput', deviceId: 'default', label: 'Default' },
+    { kind: 'audioinput', deviceId: 'mic-built-in', label: 'iPhone Microphone' },
+    { kind: 'audioinput', deviceId: 'mic-external', label: 'USB Audio Device' },
+  ]
+  navigator.mediaDevices.getUserMedia = async (constraints) => {
+    window.__lastMicConstraints = constraints
     const ctx = new AudioContext()
     const dest = ctx.createMediaStreamDestination()
     const osc = ctx.createOscillator()
@@ -61,6 +68,17 @@ check(startBox.y < 420, `start button near the top (${Math.round(startBox.y)}px)
 await page.locator('.mic-btn').tap()
 await page.waitForTimeout(2200)
 check((await page.locator('.tuner-note').innerText()).startsWith('A'), 'tap start: note reads A')
+const micConstraints = await page.evaluate(() => window.__lastMicConstraints.audio)
+check(
+  micConstraints.echoCancellation === false && micConstraints.noiseSuppression === false && micConstraints.autoGainControl === false,
+  'capture disables speech processing that distorts instruments',
+)
+check(await page.getByLabel('Choose a microphone').isVisible(), 'microphone picker appears after permission')
+await page.getByLabel('Choose a microphone').selectOption('mic-external')
+await page.waitForTimeout(500)
+const selectedMic = await page.evaluate(() => window.__lastMicConstraints.audio.deviceId?.exact)
+check(selectedMic === 'mic-external', 'external microphone can be selected')
+
 // once live, the button shrinks out of the way
 const stopBox = await page.locator('.mic-btn').boundingBox()
 check(stopBox.width < startBox.width * 0.5, `live button shrinks (${Math.round(startBox.width)}px -> ${Math.round(stopBox.width)}px)`)
@@ -71,6 +89,11 @@ check(parseFloat(bloom) > 0.7, `bloom rises on mobile (${bloom})`)
 await page.locator('.string-btn').nth(2).tap()
 check((await page.locator('.string-btn.locked').count()) === 1, 'tap locks a string')
 await page.locator('.string-btn').nth(2).tap()
+
+// Ukulele presets switch the target bank to four physical strings.
+await page.getByLabel('Choose a tuning').selectOption('ukulele-standard')
+check((await page.locator('.string-btn').count()) === 4, 'ukulele tuning shows four strings')
+check((await page.getByLabel('Choose a tuning').inputValue()) === 'ukulele-standard', 'ukulele preset stays selected')
 
 // greenhouse flow by touch
 await page.locator('.greenhouse-toggle').tap()

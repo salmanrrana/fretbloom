@@ -42,7 +42,7 @@ check((await page.locator('.garden-color').count()) === 1, 'color garden layer p
 const idleOpacity = await page.locator('.garden-color').evaluate((el) => getComputedStyle(el).opacity)
 check(parseFloat(idleOpacity) < 0.05, `garden starts muted (color opacity ${idleOpacity})`)
 await page.locator('.greenhouse-toggle').click()
-check((await page.locator('.experiments-row .target-chip').count()) === 3, 'greenhouse opens with 3 experiments')
+check((await page.locator('.experiments-row .target-chip').count()) === 2, 'greenhouse opens with 2 experiments')
 check(/rough edges/.test(await page.locator('.experiments-note').innerText()), 'greenhouse notes rough edges')
 await page.locator('.greenhouse-toggle').click()
 check((await page.locator('.experiments').count()) === 0, 'greenhouse closes again')

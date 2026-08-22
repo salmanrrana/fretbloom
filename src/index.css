@@ -452,6 +452,27 @@ textarea:focus-visible {
   appearance: textfield;
 }
 
+.mic-choice {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--sage);
+  text-shadow: 0 1px 10px rgba(16, 20, 8, 0.9);
+}
+
+.mic-choice select {
+  max-width: min(250px, calc(100vw - 96px));
+  font: inherit;
+  color: var(--cream);
+  background: rgba(16, 20, 8, 0.72);
+  border: none;
+  border-bottom: 1px solid rgba(244, 238, 223, 0.35);
+  border-radius: 0;
+  padding: 6px 2px;
+}
+
 .tuner-mode-line {
   font-family: var(--font-mono);
   font-size: 0.8rem;
@@ -605,7 +626,7 @@ textarea:focus-visible {
   text-shadow: 0 1px 10px rgba(16, 20, 8, 0.95);
 }
 
-/* six strings as a row of plain words; the dot is the bloom state */
+/* open strings as a row of plain words; the dot is the bloom state */
 .tuner-strings {
   display: flex;
   gap: clamp(14px, 4vw, 34px);
@@ -1595,7 +1616,9 @@ textarea:focus-visible {
 
   /* 16px stops iOS Safari from zooming the page when these get focus */
   .tuner-tuning,
-  .a4-input {
+  .a4-input,
+  .mic-choice,
+  .mic-choice select {
     font-size: 16px;
   }
 
@@ -1626,6 +1649,10 @@ textarea:focus-visible {
     max-width: 360px;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
+  }
+
+  .tuner-strings.strings-4 {
+    grid-template-columns: repeat(4, 1fr);
   }
 
   .string-btn {

@@ -9,11 +9,12 @@ when you're in tune. No accounts, no uploads — everything runs locally in Web 
 
 ## The tuner
 
-- Autocorrelation/NSDF pitch detection with octave-error guards, ~±1 cent
+- Mobile-tuned autocorrelation/NSDF pitch detection with harmonic and octave-error guards, ~±1 cent
 - Auto nearest-string detection, or tap a string chip to lock it
-- 8 tunings (standard, drop D, half/full step down, DADGAD, open G/D/E)
+- Selectable microphones after permission, with instrument-friendly capture settings
+- 12 guitar and ukulele tunings (including re-entrant, low-G, D, and baritone ukulele)
 - Tune-up/tune-down direction advice, cents needle, Peterson-style strobe ribbon
-- Per-string ✓ tracking with an all-six celebration
+- Per-string ✓ tracking with an all-strings celebration
 - A4 calibration 432–446 Hz
 
 ## The greenhouse (experimental modes)

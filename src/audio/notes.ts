@@ -22,6 +22,40 @@ export function midiToNameWithOctave(midi: number): string {
   return `${midiToName(midi)}${Math.floor(midi / 12) - 1}`
 }
 
+export interface StringPitchMatch {
+  freq: number
+  targetMidi: number
+  cents: number
+}
+
+/**
+ * Match a detected pitch to an open string, correcting the common phone-mic
+ * case where a string's second or third harmonic is louder than its root.
+ */
+export function matchStringPitch(
+  detectedFreq: number,
+  targetMidis: readonly number[],
+  referenceA4 = 440,
+): StringPitchMatch {
+  const calibration = referenceA4 / 440
+  const harmonics = [1, 2, 3, 4] as const
+  let best: (StringPitchMatch & { score: number }) | null = null
+
+  for (const targetMidi of targetMidis) {
+    const targetFreq = midiToFreq(targetMidi) * calibration
+    for (const harmonic of harmonics) {
+      const freq = detectedFreq / harmonic
+      const cents = 1200 * Math.log2(freq / targetFreq)
+      const correctionPenalty = harmonic === 1 ? 0 : harmonic === 2 ? 5 : 10
+      const score = Math.abs(cents) + correctionPenalty
+      if (!best || score < best.score) best = { freq, targetMidi, cents, score }
+    }
+  }
+
+  if (!best) throw new Error('At least one target string is required.')
+  return { freq: best.freq, targetMidi: best.targetMidi, cents: best.cents }
+}
+
 export interface PitchReading {
   freq: number
   midi: number

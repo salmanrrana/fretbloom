@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { engine } from '../audio/engine'
 import { detectPitch } from '../audio/pitch'
-import { midiToFreq, midiToName, midiToNameWithOctave } from '../audio/notes'
-import { TUNINGS } from '../data/tunings'
+import { matchStringPitch, midiToFreq, midiToName, midiToNameWithOctave } from '../audio/notes'
+import type { MicrophoneOption } from '../audio/mic'
+import { TUNINGS, TUNING_GROUPS } from '../data/tunings'
 
 interface Reading {
   freq: number
@@ -13,6 +14,7 @@ interface Reading {
 
 const IN_TUNE_CENTS = 3
 const STABLE_MS = 800
+const ANALYSIS_INTERVAL_MS = 50
 
 interface TunerProps {
   /** Feed the flower wall: level 0..1 (accuracy) and whether we're in tune. */
@@ -23,6 +25,8 @@ export function TunerMode({ onBloom }: TunerProps) {
   const [live, setLive] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [tuningId, setTuningId] = useState('standard')
+  const [microphoneId, setMicrophoneId] = useState('')
+  const [microphones, setMicrophones] = useState<MicrophoneOption[]>([])
   /** null = auto (nearest string); index = manually locked string. */
   const [lockedString, setLockedString] = useState<number | null>(null)
   const [reading, setReading] = useState<Reading | null>(null)
@@ -36,6 +40,8 @@ export function TunerMode({ onBloom }: TunerProps) {
   const strobeRef = useRef<HTMLDivElement>(null)
   const strobePhase = useRef(0)
   const lastFrame = useRef(0)
+  const nextAnalysis = useRef(0)
+  const lastTargetMidi = useRef<number | null>(null)
 
   const tuning = TUNINGS.find((t) => t.id === tuningId)!
   const lockedRef = useRef(lockedString)
@@ -54,32 +60,34 @@ export function TunerMode({ onBloom }: TunerProps) {
       const dt = lastFrame.current ? Math.min(0.1, (now - lastFrame.current) / 1000) : 0.016
       lastFrame.current = now
       const frame = engine.mic.frame()
-      if (frame) {
-        const freq = detectPitch(frame, engine.ctx.sampleRate)
-        if (freq) {
-          const cal = a4Ref.current / 440
-          const t = tuningRef.current
-          let targetMidi: number
-          if (lockedRef.current !== null) {
-            targetMidi = t.midis[lockedRef.current]
+      if (frame && now >= nextAnalysis.current) {
+        nextAnalysis.current = now + ANALYSIS_INTERVAL_MS
+        const t = tuningRef.current
+        const calibration = a4Ref.current / 440
+        const lowestTarget = Math.min(...t.midis.map((midi) => midiToFreq(midi) * calibration))
+        const detectedFreq = detectPitch(frame, engine.ctx.sampleRate, {
+          minFrequency: Math.max(50, lowestTarget * 0.75),
+        })
+        if (detectedFreq) {
+          const targets = lockedRef.current === null
+            ? t.midis
+            : [t.midis[lockedRef.current]]
+          const match = matchStringPitch(detectedFreq, targets, a4Ref.current)
+          const cents = Math.max(-99, Math.min(99, match.cents))
+          if (lastTargetMidi.current !== match.targetMidi) {
+            smoothCents.current = cents
+            lastTargetMidi.current = match.targetMidi
           } else {
-            // Auto: nearest string of the selected tuning.
-            targetMidi = t.midis.reduce((best, m) =>
-              Math.abs(freq - midiToFreq(m) * cal) < Math.abs(freq - midiToFreq(best) * cal) ? m : best,
-            t.midis[0])
+            smoothCents.current = smoothCents.current * 0.55 + cents * 0.45
           }
-          const targetFreq = midiToFreq(targetMidi) * cal
-          const rawCents = 1200 * Math.log2(freq / targetFreq)
-          const cents = Math.max(-99, Math.min(99, rawCents))
-          smoothCents.current = smoothCents.current * 0.55 + cents * 0.45
-          setReading({ freq, cents: smoothCents.current, targetMidi })
+          setReading({ freq: match.freq, cents: smoothCents.current, targetMidi: match.targetMidi })
           holdUntil.current = now + 1200
 
           // Stability → mark the string as tuned.
           if (Math.abs(smoothCents.current) <= IN_TUNE_CENTS) {
             if (stableSince.current === null) stableSince.current = now
             else if (now - stableSince.current > STABLE_MS) {
-              const idx = t.midis.indexOf(targetMidi)
+              const idx = t.midis.indexOf(match.targetMidi)
               if (idx >= 0) {
                 setTunedStrings((prev) => (prev.has(idx) ? prev : new Set(prev).add(idx)))
               }
@@ -90,6 +98,7 @@ export function TunerMode({ onBloom }: TunerProps) {
         } else if (now > holdUntil.current) {
           setReading(null)
           stableSince.current = null
+          lastTargetMidi.current = null
         }
       }
 
@@ -131,8 +140,47 @@ export function TunerMode({ onBloom }: TunerProps) {
   useEffect(() => {
     setTunedStrings(new Set())
     setLockedString(null)
+    setReading(null)
     stableSince.current = null
+    lastTargetMidi.current = null
   }, [tuningId, a4])
+
+  const refreshMicrophones = async () => {
+    try {
+      setMicrophones(await engine.mic.inputs())
+    } catch {
+      // Device discovery is optional; tuning still works with the default mic.
+    }
+  }
+
+  const microphoneError = (cause: unknown) => {
+    if (cause instanceof DOMException && cause.name === 'NotFoundError') {
+      return 'That microphone is no longer available. Pick another one and try again.'
+    }
+    return 'The microphone could not start. Allow access in your browser settings, then try again.'
+  }
+
+  const startMicrophone = async (deviceId: string) => {
+    await engine.mic.start(deviceId || undefined)
+    nextAnalysis.current = 0
+    lastFrame.current = 0
+    setLive(true)
+    await refreshMicrophones()
+  }
+
+  const chooseMicrophone = async (deviceId: string) => {
+    setMicrophoneId(deviceId)
+    if (!live) return
+    engine.mic.stop()
+    setLive(false)
+    setReading(null)
+    try {
+      setError(null)
+      await startMicrophone(deviceId)
+    } catch (cause) {
+      setError(microphoneError(cause))
+    }
+  }
 
   const toggle = async () => {
     if (live) {
@@ -145,10 +193,9 @@ export function TunerMode({ onBloom }: TunerProps) {
     }
     try {
       setError(null)
-      await engine.mic.start()
-      setLive(true)
-    } catch {
-      setError('Microphone access was blocked. Allow the mic in your browser bar, then try again.')
+      await startMicrophone(microphoneId)
+    } catch (cause) {
+      setError(microphoneError(cause))
     }
   }
 
@@ -172,8 +219,12 @@ export function TunerMode({ onBloom }: TunerProps) {
           onChange={(e) => setTuningId(e.target.value)}
           aria-label="Choose a tuning"
         >
-          {TUNINGS.map((t) => (
-            <option key={t.id} value={t.id}>{t.name}</option>
+          {TUNING_GROUPS.map((group) => (
+            <optgroup key={group.instrument} label={group.label}>
+              {TUNINGS.filter((candidate) => candidate.instrument === group.instrument).map((candidate) => (
+                <option key={candidate.id} value={candidate.id}>{candidate.name}</option>
+              ))}
+            </optgroup>
           ))}
         </select>
         <label className="a4-label">
@@ -188,6 +239,21 @@ export function TunerMode({ onBloom }: TunerProps) {
             aria-label="Reference pitch A4 in hertz"
           />
         </label>
+        {microphones.length > 0 && (
+          <label className="mic-choice">
+            mic
+            <select
+              value={microphoneId}
+              onChange={(event) => void chooseMicrophone(event.target.value)}
+              aria-label="Choose a microphone"
+            >
+              <option value="">Automatic (recommended)</option>
+              {microphones.map((microphone) => (
+                <option key={microphone.deviceId} value={microphone.deviceId}>{microphone.label}</option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
 
       <p className="tuner-mode-line">
@@ -231,8 +297,8 @@ export function TunerMode({ onBloom }: TunerProps) {
           : '\u00a0'}
       </p>
 
-      {/* six strings, six words on the wall */}
-      <div className="tuner-strings" role="group" aria-label="Strings, tap to lock one">
+      {/* Open strings become lockable targets for the selected instrument. */}
+      <div className={`tuner-strings strings-${tuning.midis.length}`} role="group" aria-label="Strings, tap to lock one">
         {tuning.midis.map((midi, i) => {
           const isTarget = i === targetIdx
           const isLocked = lockedString === i
@@ -257,7 +323,11 @@ export function TunerMode({ onBloom }: TunerProps) {
         })}
       </div>
 
-      {allTuned && <p className="tuner-alltuned">all six in bloom \u2014 go make some noise</p>}
+      {allTuned && (
+        <p className="tuner-alltuned">
+          all {tuning.midis.length === 4 ? 'four' : tuning.midis.length} in bloom \u2014 go make some noise
+        </p>
+      )}
 
       <button className={`mic-btn tuner-mic-btn${live ? ' live' : ''}`} onClick={toggle}>
         <span className="mic-btn-label">{live ? 'stop' : 'start tuner'}</span>
