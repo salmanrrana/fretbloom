@@ -186,6 +186,24 @@ await page.locator('.songbook-input').first().fill('should be discarded')
 await page.getByRole('button', { name: 'Cancel' }).click()
 check((await page.locator('.player-title').innerText()) === 'Killing An Arab (edited)', 'cancel from the player discards the change and returns to the player')
 
+// Changing the video drops the sync map too — it was tapped against the old video
+await page.locator('.player-edit').click()
+await page.locator('.songbook-input').nth(1).fill('https://youtu.be/aaaaaaaaaaa')
+await page.getByRole('button', { name: 'Save changes' }).click()
+check(await page.locator('.sync-btn').isVisible(), 'video change drops the sync map (sync offered again)')
+check((await page.locator('.video-frame iframe').getAttribute('src')).includes('embed/aaaaaaaaaaa'), 'player embeds the new video')
+
+// Edit control is hidden while a sync tap-through is recording
+await page.locator('.sync-btn').click()
+await page.waitForTimeout(600)
+check((await page.locator('.player-edit').count()) === 0, 'edit control hidden while recording a sync')
+// Re-record the sync so the chord-change case below has a map to drop
+for (let i = 0; i < 10; i++) {
+  await page.locator('.sync-recording .play-btn').click()
+  await page.waitForTimeout(120)
+}
+check(/synced to video/.test(await page.locator('.sync-status').innerText()), 're-synced against the new video')
+
 // A second song so list order can be checked (new songs press to the top)
 await page.getByRole('button', { name: '← Songbook' }).click()
 check((await page.locator('.songbook-title').innerText()) === 'Killing An Arab (edited)', 'list shows the edited title')

@@ -476,9 +476,11 @@ function SongbookPlayer({
           ← Songbook
         </button>
         <h2 className="player-title">{song.title}</h2>
-        <button className="player-edit" onClick={onEdit} aria-label={`Edit ${song.title}`}>
-          edit
-        </button>
+        {!recording && (
+          <button className="player-edit" onClick={onEdit} aria-label={`Edit ${song.title}`}>
+            edit
+          </button>
+        )}
         <p className="songbook-hint">
           {recording ? 'space: mark the chord · esc: cancel' : '→ / space: next · ←: back · tap any chord'}
         </p>
