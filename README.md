@@ -32,9 +32,17 @@ wall blooms when you nail it). Rough edges expected.
 npm install
 npm run dev        # local dev server
 npm run build      # production build to dist/
+npm run check:fast # lint, strict types, and core tests
 node e2e-check.mjs # Playwright UI smoke test (needs dev server on :5199)
 node e2e-audio.mjs # audio-pipeline test with a synthesized mic signal
 ```
+
+`npm install` configures the repository's pre-commit hook. It checks a temporary
+snapshot of the staged source/configuration files, then runs the project
+typecheck and core tests when staged code or project configuration could affect
+them. Source deletions also trigger the project checks, and unstaged edits are
+left alone. The Playwright checks stay manual because they require the
+development server.
 
 ## Deploy
 
