@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { parseTab, youtubeId, type SheetLine } from '../data/tabParser'
+import { parseTab, youtubeId, type ParsedStep, type SheetLine } from '../data/tabParser'
 import { loadSongbook, saveSongbook, type SavedSong } from '../data/songbook'
 import { chordNoteNames, chordPitchClasses } from '../data/chords'
 import { engine } from '../audio/engine'
@@ -19,10 +19,23 @@ interface Props {
   onGlow: (lit: boolean) => void
 }
 
+/**
+ * A recorded video sync map only fits the chord sequence it was tapped
+ * against, on the same video. Compares against the re-parsed original tab
+ * because that is what the player walked while recording.
+ */
+function syncStillFits(song: SavedSong, steps: ParsedStep[], video: string | null): boolean {
+  if (!song.syncTimes || song.youtubeId !== video) return false
+  const before = parseTab(song.rawTab).steps
+  return before.length === steps.length && before.every((s, i) => s.chord.symbol === steps[i].chord.symbol)
+}
+
 export function SongbookMode({ onGlow }: Props) {
   const [songs, setSongs] = useState<SavedSong[]>(() => loadSongbook())
   const [openId, setOpenId] = useState<string | null>(null)
-  const [editing, setEditing] = useState(songs.length === 0)
+  // The press bench: null = closed, { id: null } = pressing a new song,
+  // { id } = editing that saved song with its fields loaded in.
+  const [bench, setBench] = useState<{ id: string | null } | null>(songs.length === 0 ? { id: null } : null)
 
   // --- editor state ---
   const [title, setTitle] = useState('')
@@ -33,28 +46,43 @@ export function SongbookMode({ onGlow }: Props) {
   const previewVideo = useMemo(() => youtubeId(videoUrl), [videoUrl])
 
   const open = songs.find((s) => s.id === openId) ?? null
+  const editing = bench?.id ? (songs.find((s) => s.id === bench.id) ?? null) : null
 
   const persist = (next: SavedSong[]) => {
     setSongs(next)
     saveSongbook(next)
   }
 
+  /** Open the bench empty for a new song, or loaded with a saved one. */
+  const openBench = (song: SavedSong | null) => {
+    setTitle(song?.title ?? '')
+    setRawTab(song?.rawTab ?? '')
+    setVideoUrl(song?.youtubeId ? `https://www.youtube.com/watch?v=${song.youtubeId}` : '')
+    setBench({ id: song?.id ?? null })
+  }
+
   const save = () => {
     if (!preview || preview.steps.length === 0) return
-    const song: SavedSong = {
-      id: `song-${Date.now().toString(36)}`,
+    const fields = {
       title: title.trim() || 'Untitled song',
       rawTab,
       youtubeId: previewVideo,
       steps: preview.steps,
-      savedAt: Date.now(),
     }
-    persist([song, ...songs])
-    setTitle('')
-    setRawTab('')
-    setVideoUrl('')
-    setEditing(false)
-    setOpenId(song.id)
+    if (editing) {
+      // Same id and list position; the sync map survives only if it still fits.
+      const { syncTimes, ...rest } = editing
+      const updated: SavedSong = syncStillFits(editing, preview.steps, previewVideo)
+        ? { ...rest, ...fields, syncTimes }
+        : { ...rest, ...fields }
+      persist(songs.map((s) => (s.id === updated.id ? updated : s)))
+      setOpenId(updated.id)
+    } else {
+      const song: SavedSong = { id: `song-${Date.now().toString(36)}`, savedAt: Date.now(), ...fields }
+      persist([song, ...songs])
+      setOpenId(song.id)
+    }
+    setBench(null)
   }
 
   const remove = (id: string) => {
@@ -66,10 +94,6 @@ export function SongbookMode({ onGlow }: Props) {
     persist(songs.map((s) => (s.id === updated.id ? updated : s)))
   }
 
-  if (open) {
-    return <SongbookPlayer song={open} onBack={() => setOpenId(null)} onGlow={onGlow} onUpdate={update} />
-  }
-
   // Unique chord symbols for the setlist run — the song's fingerprint.
   const chordRun = (s: SavedSong) => {
     const uniq = [...new Set(s.steps.map((st) => st.chord.symbol))]
@@ -79,15 +103,16 @@ export function SongbookMode({ onGlow }: Props) {
   const pressedOn = (t: number) =>
     new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 
-  if (editing) {
+  if (bench) {
     return (
       <section className="songbook-stage" aria-label="Songbook">
         <div className="songbook-editor">
           <header className="press-head">
-            <h2 className="press-title">Press a new song</h2>
+            <h2 className="press-title">{editing ? `Edit “${editing.title}”` : 'Press a new song'}</h2>
             <p className="press-sub">
-              Paste any chord tab — chord lines over the lyrics, or inline like [G]Here comes the [C]sun. The
-              chords are read as you type.
+              {editing
+                ? 'Fix the title, the tab, or the video link — the chords are re-read as you type. A recorded video sync stays as long as the chords still line up.'
+                : 'Paste any chord tab — chord lines over the lyrics, or inline like [G]Here comes the [C]sun. The chords are read as you type.'}
             </p>
           </header>
 
@@ -158,10 +183,10 @@ export function SongbookMode({ onGlow }: Props) {
 
               <div className="songbook-actions">
                 <button className="play-btn" onClick={save} disabled={!preview || preview.steps.length === 0}>
-                  Save song
+                  {editing ? 'Save changes' : 'Save song'}
                 </button>
                 {songs.length > 0 && (
-                  <button className="press-cancel" onClick={() => setEditing(false)}>
+                  <button className="press-cancel" onClick={() => setBench(null)}>
                     Cancel
                   </button>
                 )}
@@ -170,6 +195,18 @@ export function SongbookMode({ onGlow }: Props) {
           </div>
         </div>
       </section>
+    )
+  }
+
+  if (open) {
+    return (
+      <SongbookPlayer
+        song={open}
+        onBack={() => setOpenId(null)}
+        onEdit={() => openBench(open)}
+        onGlow={onGlow}
+        onUpdate={update}
+      />
     )
   }
 
@@ -193,13 +230,16 @@ export function SongbookMode({ onGlow }: Props) {
                 {s.syncTimes ? ' · synced' : ''} · pressed {pressedOn(s.savedAt)}
               </span>
             </button>
+            <button className="songbook-edit" onClick={() => openBench(s)} aria-label={`Edit ${s.title}`}>
+              edit
+            </button>
             <button className="songbook-delete" onClick={() => remove(s.id)} aria-label={`Delete ${s.title}`}>
               ×
             </button>
           </div>
         ))}
 
-        <button className="setlist-add" onClick={() => setEditing(true)}>
+        <button className="setlist-add" onClick={() => openBench(null)}>
           <span aria-hidden="true">+</span> press a new song
         </button>
       </div>
@@ -210,11 +250,13 @@ export function SongbookMode({ onGlow }: Props) {
 function SongbookPlayer({
   song,
   onBack,
+  onEdit,
   onGlow,
   onUpdate,
 }: {
   song: SavedSong
   onBack: () => void
+  onEdit: () => void
   onGlow: (lit: boolean) => void
   onUpdate: (song: SavedSong) => void
 }) {
@@ -421,6 +463,7 @@ function SongbookPlayer({
     return (
       <section className="songbook-stage" aria-label={`Playing ${song.title}`}>
         <button className="songbook-back" onClick={onBack}>← Songbook</button>
+        <button className="player-edit" onClick={onEdit} aria-label={`Edit ${song.title}`}>edit</button>
         <p className="songbook-warn" style={{ marginTop: 12 }}>No chords found in this song's tab.</p>
       </section>
     )
@@ -433,6 +476,9 @@ function SongbookPlayer({
           ← Songbook
         </button>
         <h2 className="player-title">{song.title}</h2>
+        <button className="player-edit" onClick={onEdit} aria-label={`Edit ${song.title}`}>
+          edit
+        </button>
         <p className="songbook-hint">
           {recording ? 'space: mark the chord · esc: cancel' : '→ / space: next · ←: back · tap any chord'}
         </p>

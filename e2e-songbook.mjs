@@ -1,5 +1,5 @@
 // Songbook flow: paste a tab + YouTube link, save, follow along on the full
-// sheet, mic follow mode, persistence.
+// sheet, mic follow mode, video sync, editing, persistence.
 import { chromium } from 'playwright'
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:5199'
@@ -168,10 +168,67 @@ check((await page.locator('.sheet-chord.now').innerText()) === 'G', 'reopened so
 check(/Standing on a beach/.test(await page.locator('.sheet').innerText()), 'sheet re-renders from stored rawTab')
 check(/synced to video/.test(await page.locator('.sync-status').innerText()), 'sync map persists across reload')
 
-// Delete flow
+// --- edit from the player: title only, the sync map must survive ---
+await page.locator('.player-edit').click()
+check(await page.locator('.songbook-paste').isVisible(), 'edit from the player opens the press bench')
+check(/Edit “Killing An Arab \(test\)”/.test(await page.locator('.press-title').innerText()), 'bench heading names the song')
+check((await page.locator('.songbook-input').first().inputValue()) === 'Killing An Arab (test)', 'title prefilled')
+check(/Standing on a beach/.test(await page.locator('.songbook-paste').inputValue()), 'tab prefilled')
+check(/dQw4w9WgXcQ/.test(await page.locator('.songbook-input').nth(1).inputValue()), 'video link prefilled')
+await page.locator('.songbook-input').first().fill('Killing An Arab (edited)')
+await page.getByRole('button', { name: 'Save changes' }).click()
+check((await page.locator('.player-title').innerText()) === 'Killing An Arab (edited)', 'save returns to the player with the new title')
+check(/synced to video/.test(await page.locator('.sync-status').innerText()), 'title-only edit keeps the sync map')
+
+// Cancel from the player: change discarded, back on the player
+await page.locator('.player-edit').click()
+await page.locator('.songbook-input').first().fill('should be discarded')
+await page.getByRole('button', { name: 'Cancel' }).click()
+check((await page.locator('.player-title').innerText()) === 'Killing An Arab (edited)', 'cancel from the player discards the change and returns to the player')
+
+// A second song so list order can be checked (new songs press to the top)
 await page.getByRole('button', { name: '← Songbook' }).click()
-await page.locator('.songbook-delete').click()
-check((await page.locator('.songbook-open').count()) === 0, 'delete removes the song')
+check((await page.locator('.songbook-title').innerText()) === 'Killing An Arab (edited)', 'list shows the edited title')
+await page.locator('.setlist-add').click()
+await page.locator('.songbook-input').first().fill('Second song')
+await page.locator('.songbook-paste').fill('[Verse]\nC  G  Am  F')
+await page.getByRole('button', { name: 'Save song' }).click()
+await page.getByRole('button', { name: '← Songbook' }).click()
+const ids = () => page.evaluate(() => JSON.parse(localStorage.getItem('fretbloom.songbook.v1')).map((s) => s.id))
+const idsBefore = await ids()
+check(idsBefore.length === 2, 'two songs in the setlist')
+check((await page.locator('.songbook-title').nth(1).innerText()) === 'Killing An Arab (edited)', 'edited song sits second in the list')
+
+// --- edit from the list row: change the chords, the sync map must be dropped ---
+await page.locator('.songbook-edit').nth(1).click()
+check((await page.locator('.songbook-input').first().inputValue()) === 'Killing An Arab (edited)', 'row edit prefills the right song')
+await page.locator('.songbook-paste').fill(`${TAB}\nEm`)
+await page.getByRole('button', { name: 'Save changes' }).click()
+check((await page.locator('.sheet-chord').count()) === 11, 'edited tab renders the added chord (11 chips)')
+check(await page.locator('.sync-btn').isVisible(), 'chord change drops the stale sync map (sync offered again)')
+await page.getByRole('button', { name: '← Songbook' }).click()
+check(JSON.stringify(await ids()) === JSON.stringify(idsBefore), 'edit keeps ids and list order')
+
+// Cancel from the list: change discarded, back on the list
+await page.locator('.songbook-edit').nth(1).click()
+await page.locator('.songbook-input').first().fill('should be discarded')
+await page.getByRole('button', { name: 'Cancel' }).click()
+check(await page.locator('.songbook-list').isVisible(), 'cancel from the list returns to the list')
+check((await page.locator('.songbook-title').nth(1).innerText()) === 'Killing An Arab (edited)', 'cancelled edit is discarded')
+
+// Edits persist across reload
+await page.reload({ waitUntil: 'networkidle' })
+await page.locator('.greenhouse-toggle').click()
+await page.locator('.experiments-row .target-chip', { hasText: 'Songbook' }).click()
+check((await page.locator('.songbook-title').nth(1).innerText()) === 'Killing An Arab (edited)', 'edited title persists across reload')
+const metaAfter = await page.locator('.songbook-meta').nth(1).innerText()
+check(/11 chords/.test(metaAfter), `edited tab persists across reload (${metaAfter})`)
+check(!/synced/.test(metaAfter), 'dropped sync map stays dropped after reload')
+
+// Delete flow
+await page.locator('.songbook-delete').nth(1).click()
+check((await page.locator('.songbook-open').count()) === 1, 'delete removes the song')
+check((await page.locator('.songbook-title').innerText()) === 'Second song', 'the other song is untouched')
 
 check(errors.length === 0, errors.length ? `page errors: ${errors.join('|')}` : 'no page errors')
 await browser.close()

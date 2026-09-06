@@ -962,9 +962,8 @@ textarea:focus-visible {
   font-family: var(--font-mono);
 }
 
+.songbook-edit,
 .songbook-delete {
-  font-size: 1.25rem;
-  line-height: 1;
   color: var(--sage);
   background: transparent;
   border: none;
@@ -974,11 +973,26 @@ textarea:focus-visible {
   transition: opacity 0.2s ease, color 0.2s ease;
 }
 
+.songbook-edit {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  padding-right: 6px;
+}
+
+.songbook-delete {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.songbook-item:hover .songbook-edit,
 .songbook-item:hover .songbook-delete,
+.songbook-edit:focus-visible,
 .songbook-delete:focus-visible {
   opacity: 1;
 }
 
+.songbook-edit:hover,
 .songbook-delete:hover {
   color: var(--marigold);
 }
@@ -1196,7 +1210,8 @@ textarea:focus-visible {
 
 /* -- player chrome -- */
 
-.songbook-back {
+.songbook-back,
+.player-edit {
   font-family: var(--font-mono);
   font-size: 0.82rem;
   letter-spacing: 0.06em;
@@ -1209,7 +1224,8 @@ textarea:focus-visible {
   text-shadow: 0 1px 10px rgba(16, 20, 8, 0.9);
 }
 
-.songbook-back:hover {
+.songbook-back:hover,
+.player-edit:hover {
   color: var(--cream);
 }
 
@@ -1526,9 +1542,11 @@ textarea:focus-visible {
     white-space: normal;
     font-size: 0.8rem;
   }
+  .songbook-edit,
   .songbook-delete {
     padding: 0 12px;
     min-width: 44px;
+    opacity: 0.8;
   }
   /* 16px stops iOS Safari from zooming when the editor fields get focus */
   .songbook-input,

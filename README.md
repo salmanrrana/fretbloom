@@ -46,6 +46,9 @@ Deployed on Netlify from `netlify.toml` (`npm run build` → `dist/`).
   hears itself.
 - The songbook keeps your original paste and renders it whole; chord chips in
   the sheet are live (tap to jump, lit when current).
+- Saved songs can be edited (title, tab, video link) from the setlist row or
+  the player; a recorded video sync survives an edit as long as the chord
+  sequence and video are unchanged.
 - Video sync talks to the YouTube embed through its postMessage API
   (enablejsapi) — one tap-through stores per-chord timestamps in localStorage,
   then the sheet follows the video clock and sheet taps seek the video.
