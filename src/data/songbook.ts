@@ -1,4 +1,16 @@
+import type { SongLyrics } from './lyrics'
 import type { ParsedStep } from './tabParser'
+import type { DetectedNote } from '../audio/songAnalysisTypes'
+
+export interface VideoAnalysis {
+  videoId: string
+  sequenceKey: string
+  duration: number
+  notes: DetectedNote[]
+  syncReason: string | null
+  /** Automatic alignment is stored separately from a user's manual timing. */
+  times: number[] | null
+}
 
 /** A user-saved song: pasted tab, parsed chords, optional YouTube link. */
 export interface SavedSong {
@@ -14,6 +26,9 @@ export interface SavedSong {
    * user records one.
    */
   syncTimes?: number[]
+  syncSource?: 'manual' | 'automatic'
+  videoAnalysis?: VideoAnalysis
+  lyrics?: SongLyrics
 }
 
 const KEY = 'fretbloom.songbook.v1'

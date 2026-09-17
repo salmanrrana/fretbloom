@@ -1,38 +1,51 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 
-/**
- * Talks to the songbook's YouTube embed over the iframe postMessage API
- * (enablejsapi=1) — no SDK download. After a "listening" handshake the player
- * streams infoDelivery messages with currentTime/playerState; we interpolate
- * between reports so time() is smooth at rAF rate.
- */
-
 const YT_ORIGIN = 'https://www.youtube-nocookie.com'
 
 export interface VideoClock {
-  /** Interpolated playback position in seconds, or null before the first report. */
   time: () => number | null
-  /** Ref-backed so rAF loops never read a stale value. */
   isPlaying: () => boolean
-  /** React state mirror of isPlaying, for rendering. */
   playing: boolean
   seek: (seconds: number) => void
   play: () => void
   pause: () => void
+  setRate: (rate: number) => void
 }
 
-export function useYouTubeClock(iframeRef: RefObject<HTMLIFrameElement | null>, enabled: boolean): VideoClock {
+/** Follow only this iframe's reports, interpolating at the video's playback speed. */
+export function useYouTubeClock(
+  iframeRef: RefObject<HTMLIFrameElement | null>,
+  enabled: boolean,
+): VideoClock & { ready: boolean; error: number | null } {
+  const [error, setError] = useState<number | null>(null)
+  const [ready, setReady] = useState(false)
   const [playing, setPlaying] = useState(false)
   const playingRef = useRef(false)
   const lastTime = useRef<number | null>(null)
   const lastAt = useRef(0)
-  const gotInfo = useRef(false)
+  const rate = useRef(1)
 
+  const time = useCallback(
+    () =>
+      lastTime.current === null
+        ? null
+        : lastTime.current +
+          (playingRef.current
+            ? ((performance.now() - lastAt.current) / 1000) * rate.current
+            : 0),
+    [],
+  )
   const command = useCallback(
     (func: string, args: unknown[] = []) => {
       iframeRef.current?.contentWindow?.postMessage(
-        JSON.stringify({ event: 'command', func, args, id: 1, channel: 'widget' }),
+        JSON.stringify({
+          event: 'command',
+          func,
+          args,
+          id: 1,
+          channel: 'widget',
+        }),
         YT_ORIGIN,
       )
     },
@@ -40,63 +53,127 @@ export function useYouTubeClock(iframeRef: RefObject<HTMLIFrameElement | null>, 
   )
 
   useEffect(() => {
-    if (!enabled) return
-
-    const onMessage = (e: MessageEvent) => {
-      if (e.origin !== YT_ORIGIN) return
-      let data: { event?: string; info?: { currentTime?: number; playerState?: number } }
-      try {
-        data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data
-      } catch {
-        return
-      }
-      if (data.event !== 'infoDelivery' && data.event !== 'initialDelivery') return
-      gotInfo.current = true
-      const info = data.info
-      if (typeof info?.currentTime === 'number') {
-        lastTime.current = info.currentTime
-        lastAt.current = performance.now()
-      }
-      if (typeof info?.playerState === 'number') {
-        const isPlaying = info.playerState === 1
-        playingRef.current = isPlaying
-        setPlaying(isPlaying)
-      }
+    const reset = () => {
+      setError(null)
+      setReady(false)
+      lastTime.current = null
+      playingRef.current = false
+      rate.current = 1
+      setPlaying(false)
     }
-    window.addEventListener('message', onMessage)
-
-    // Keep knocking until the player answers (it may still be loading).
+    reset()
+    if (!enabled) return
+    let gotInfo = false
     const listen = () => {
       iframeRef.current?.contentWindow?.postMessage(
         JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }),
         YT_ORIGIN,
       )
+      command('addEventListener', ['onError'])
+      command('addEventListener', ['onStateChange'])
     }
+    const onLoad = () => {
+      reset()
+      gotInfo = false
+      listen()
+    }
+    const onMessage = (event: MessageEvent<unknown>) => {
+      if (
+        event.origin !== YT_ORIGIN ||
+        event.source !== iframeRef.current?.contentWindow
+      )
+        return
+      let data: unknown
+      try {
+        data =
+          typeof event.data === 'string' ? JSON.parse(event.data) : event.data
+      } catch {
+        return
+      }
+      if (data && typeof data === 'object' && 'event' in data) {
+        if (data.event === 'onReady') {
+          setReady(true)
+          listen()
+          return
+        }
+        if (
+          data.event === 'onError' &&
+          'info' in data &&
+          typeof data.info === 'number'
+        ) {
+          setError(data.info)
+          playingRef.current = false
+          setPlaying(false)
+          return
+        }
+      }
+      if (
+        !data ||
+        typeof data !== 'object' ||
+        !('event' in data) ||
+        (data.event !== 'infoDelivery' && data.event !== 'initialDelivery') ||
+        !('info' in data) ||
+        !data.info ||
+        typeof data.info !== 'object'
+      )
+        return
+      const info = data.info
+      const current = time()
+      if (current !== null) lastTime.current = current
+      lastAt.current = performance.now()
+      if (
+        'currentTime' in info &&
+        typeof info.currentTime === 'number' &&
+        Number.isFinite(info.currentTime) &&
+        info.currentTime >= 0
+      ) {
+        lastTime.current = info.currentTime
+        gotInfo = true
+        setReady(true)
+      }
+      if (
+        'playbackRate' in info &&
+        typeof info.playbackRate === 'number' &&
+        Number.isFinite(info.playbackRate) &&
+        info.playbackRate > 0
+      )
+        rate.current = info.playbackRate
+      if ('playerState' in info && typeof info.playerState === 'number') {
+        playingRef.current = info.playerState === 1
+        setPlaying(playingRef.current)
+      }
+    }
+    const iframe = iframeRef.current
+    iframe?.addEventListener('load', onLoad)
+    window.addEventListener('message', onMessage)
     listen()
     const knock = window.setInterval(() => {
-      if (gotInfo.current) window.clearInterval(knock)
-      else listen()
+      if (!gotInfo) listen()
     }, 700)
-
     return () => {
+      iframe?.removeEventListener('load', onLoad)
       window.removeEventListener('message', onMessage)
       window.clearInterval(knock)
     }
-  }, [enabled, iframeRef])
+  }, [enabled, iframeRef, time, command])
 
   return useMemo(
     () => ({
-      time: () => {
-        if (lastTime.current == null) return null
-        const drift = playingRef.current ? (performance.now() - lastAt.current) / 1000 : 0
-        return lastTime.current + drift
-      },
+      time,
+      ready,
+      error,
       isPlaying: () => playingRef.current,
       playing,
-      seek: (seconds: number) => command('seekTo', [seconds, true]),
+      seek: (seconds: number) => {
+        if (!Number.isFinite(seconds) || seconds < 0) return
+        lastTime.current = seconds
+        lastAt.current = performance.now()
+        command('seekTo', [seconds, true])
+      },
       play: () => command('playVideo'),
       pause: () => command('pauseVideo'),
+      setRate: (value: number) => command('setPlaybackRate', [value]),
     }),
-    [playing, command],
+    [playing, command, time, ready, error],
   )
 }

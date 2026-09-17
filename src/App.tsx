@@ -52,7 +52,9 @@ export default function App() {
       {/* Songbook reads like a naturalist's press: a sheet of dark glass laid
           over the garden so type can spread across the whole screen while the
           flowers keep breathing underneath. */}
-      {mode === 'songbook' && <div className="songbook-veil" aria-hidden="true" />}
+      {mode === 'songbook' && (
+        <div className="songbook-veil" aria-hidden="true" />
+      )}
 
       <div className={`shell${mode === 'songbook' ? ' shell-wide' : ''}`}>
         <header className="masthead">
@@ -67,8 +69,10 @@ export default function App() {
         {mode === 'listen' && <ListenMode onGlow={onGlow} />}
 
         <p className="footnote">
-          Everything runs in your browser; nothing is recorded or uploaded.
-          {mode === 'listen' && ' Headphones help in listen mode — otherwise the app hears itself.'}
+          Your microphone stays on this device. YouTube analysis uses our
+          server.
+          {mode === 'listen' &&
+            ' Headphones help in listen mode — otherwise the app hears itself.'}
         </p>
       </div>
 

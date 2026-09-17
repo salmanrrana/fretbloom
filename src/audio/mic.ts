@@ -5,6 +5,7 @@ export interface MicrophoneOption {
 
 /** Shared microphone capture: one stream, one analyser, many readers. */
 export class MicInput {
+  private requestId = 0
   private ctx: AudioContext
   private stream: MediaStream | null = null
   private source: MediaStreamAudioSourceNode | null = null
@@ -21,6 +22,7 @@ export class MicInput {
 
   async start(deviceId?: string): Promise<void> {
     if (this.analyser) return
+    const requestId = ++this.requestId
     if (!navigator.mediaDevices?.getUserMedia) {
       throw new Error('Microphone access is unavailable in this browser.')
     }
@@ -28,6 +30,8 @@ export class MicInput {
     // iOS requires resume() to happen inside the tap that starts capture.
     if (this.ctx.state === 'suspended') await this.ctx.resume()
 
+    if (requestId !== this.requestId)
+      throw new DOMException('Microphone request canceled.', 'AbortError')
     const supported = navigator.mediaDevices.getSupportedConstraints()
     const audio: MediaTrackConstraints = {}
     if (deviceId) audio.deviceId = { exact: deviceId }
@@ -39,6 +43,8 @@ export class MicInput {
     const stream = await navigator.mediaDevices.getUserMedia({ audio })
     try {
       if (this.ctx.state === 'suspended') await this.ctx.resume()
+      if (requestId !== this.requestId)
+        throw new DOMException('Microphone request canceled.', 'AbortError')
       const source = this.ctx.createMediaStreamSource(stream)
       const analyser = this.ctx.createAnalyser()
       analyser.fftSize = 4096
@@ -58,7 +64,10 @@ export class MicInput {
     const devices = await navigator.mediaDevices.enumerateDevices()
     let unnamed = 0
     return devices
-      .filter((device) => device.kind === 'audioinput' && device.deviceId !== 'default')
+      .filter(
+        (device) =>
+          device.kind === 'audioinput' && device.deviceId !== 'default',
+      )
       .map((device) => ({
         deviceId: device.deviceId,
         label: device.label || `Microphone ${++unnamed}`,
@@ -76,6 +85,7 @@ export class MicInput {
   }
 
   stop(): void {
+    this.requestId++
     this.stream?.getTracks().forEach((track) => track.stop())
     this.source?.disconnect()
     this.stream = null
