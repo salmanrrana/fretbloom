@@ -1,4 +1,5 @@
 import type { DetectedNote } from '../audio/songAnalysisTypes'
+import type { TimedChord } from './songSync'
 
 export interface LyricCue {
   start: number
@@ -94,8 +95,31 @@ export function parseLyrics(
 }
 
 export interface LyricRow extends LyricCue {
+  /** Chords sounding during the line; empty when the song has none. */
+  chords: TimedChord[]
+  /** Single-note estimates, used only when no chords were found at all. */
   notes: DetectedNote[]
   instrumental: boolean
+}
+
+/**
+ * Chords belong to every line they sound through, so a chord held across a
+ * line break appears in both. A brief spill-over from boundary jitter (under
+ * 0.2 s) is ignored so lines don't pick up their neighbour's last chord.
+ */
+export function chordsForLyrics(
+  cues: readonly LyricCue[],
+  chords: readonly TimedChord[],
+): TimedChord[][] {
+  return cues.map((cue) =>
+    chords.filter((chord) => {
+      const overlap =
+        Math.min(chord.end, cue.end) - Math.max(chord.start, cue.start)
+      return (
+        overlap > 0.2 || (chord.start >= cue.start && chord.start < cue.end)
+      )
+    }),
+  )
 }
 
 function timingMarkup(text: string): string {
@@ -125,38 +149,40 @@ export function editedLyricCues(
   return next.cues
 }
 
-/** Keep introductions and breaks visible instead of dropping their notes. */
+/**
+ * Lines plus the introductions and breaks between them, each with what sounds
+ * during it. Chords are the play-along; single notes only stand in when
+ * nothing was recognized. Silent breaks are dropped.
+ */
 export function lyricRows(
   cues: readonly LyricCue[],
+  chords: readonly TimedChord[],
   notes: readonly DetectedNote[],
   duration: number,
 ): LyricRow[] {
   const rows: LyricRow[] = []
   let cursor = 0
+  const gap = (start: number, end: number): LyricRow => ({
+    start,
+    end,
+    text: 'Instrumental / no lyrics',
+    chords: [],
+    notes: [],
+    instrumental: true,
+  })
   for (const cue of cues) {
-    if (cue.start > cursor)
-      rows.push({
-        start: cursor,
-        end: cue.start,
-        text: 'Instrumental / no lyrics',
-        notes: [],
-        instrumental: true,
-      })
-    rows.push({ ...cue, notes: [], instrumental: false })
+    if (cue.start > cursor) rows.push(gap(cursor, cue.start))
+    rows.push({ ...cue, chords: [], notes: [], instrumental: false })
     cursor = cue.end
   }
-  if (cursor < duration)
-    rows.push({
-      start: cursor,
-      end: duration,
-      text: 'Instrumental / no lyrics',
-      notes: [],
-      instrumental: true,
-    })
-  const groups = notesForLyrics(rows, notes)
+  if (cursor < duration) rows.push(gap(cursor, duration))
+  const chordGroups = chordsForLyrics(rows, chords)
+  const noteGroups = chords.length
+    ? rows.map(() => [])
+    : notesForLyrics(rows, notes)
   return rows
-    .map((row, i) => ({ ...row, notes: groups[i] }))
-    .filter((row) => !row.instrumental || row.notes.length > 0)
+    .map((row, i) => ({ ...row, chords: chordGroups[i], notes: noteGroups[i] }))
+    .filter((row) => !row.instrumental || row.chords.length || row.notes.length)
 }
 
 /** Reject malformed remote timing rather than attaching words to arbitrary notes. */

@@ -2,19 +2,42 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { loadYouTubeAudio } from '../audio/youtubeAnalysis'
 import { useYouTubeClock, type VideoClock } from './useYouTubeClock'
 
+/** How long the embedded player may stay silent once analysis is done. */
+const PLAYER_GRACE_MS = 8_000
+
+/** Why the song audio is playing instead of the embedded video. */
+export type VideoProblem = 'blocked' | 'silent' | null
+
 /** One playback clock keeps lyrics, notes and seeking together across both sources. */
 export function useSongPlayback(videoId: string | null, analyzing: boolean) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
   const video = useYouTubeClock(iframeRef, Boolean(videoId))
   const [preferAudio, setPreferAudio] = useState(false)
+  const [stalled, setStalled] = useState(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [audioReady, setAudioReady] = useState(false)
   const [playing, setPlaying] = useState(false)
   const [audioError, setAudioError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
-  const useAudio = preferAudio || video.error !== null
+  const useAudio = preferAudio || stalled || video.error !== null
   const pauseVideo = video.pause
+
+  useEffect(() => {
+    setPreferAudio(false)
+    setStalled(false)
+  }, [videoId])
+
+  // YouTube does not always report an error for a video it will not play
+  // here (label uploads on local addresses, player messages eaten by an
+  // extension). Once the song audio exists, give the player a moment and then
+  // play the audio instead of leaving the transport disabled. A slow player
+  // that reports ready later can be shown again with showVideo.
+  useEffect(() => {
+    if (!videoId || analyzing || useAudio || video.ready) return
+    const timer = window.setTimeout(() => setStalled(true), PLAYER_GRACE_MS)
+    return () => window.clearTimeout(timer)
+  }, [videoId, analyzing, useAudio, video.ready])
 
   useEffect(() => {
     if (!useAudio) return
@@ -105,8 +128,14 @@ export function useSongPlayback(videoId: string | null, analyzing: boolean) {
     audioUrl,
     audioError,
     useAudio,
-    videoError: video.error,
+    videoProblem: (video.error !== null
+      ? 'blocked'
+      : stalled
+        ? 'silent'
+        : null) satisfies VideoProblem,
     ready: useAudio ? audioReady : video.ready,
+    /** The embedded player has reported in, so a 'silent' stall can be undone. */
+    videoReady: video.ready,
     clock: useAudio ? audio : video,
     setPlaying,
     setAudioReady,
@@ -116,5 +145,6 @@ export function useSongPlayback(videoId: string | null, analyzing: boolean) {
       setPreferAudio(true)
     },
     retryAudio: () => setAttempt((value) => value + 1),
+    showVideo: () => setStalled(false),
   }
 }

@@ -1354,6 +1354,8 @@ textarea:focus-visible {
 }
 
 .sheet {
+  /* relative: the lit chord's offsetTop is measured against this pane */
+  position: relative;
   font-family: var(--font-mono);
   font-size: clamp(0.82rem, 2.2vw, 1rem);
   line-height: 1.7;
@@ -1642,9 +1644,11 @@ textarea:focus-visible {
   .press-head {
     margin-top: 0;
   }
-  /* content scrolls clear of the fixed corner pills */
-  .songbook-stage {
-    padding-bottom: 72px;
+  /* Songbook on a phone: the corner pills sit at the end of the page, so
+     they never float over the chord controls mid-song. */
+  .greenhouse-corner.in-songbook {
+    position: static;
+    padding: 0 14px calc(14px + env(safe-area-inset-bottom));
   }
   .songbook-hint {
     display: none;
@@ -1878,15 +1882,11 @@ textarea:focus-visible {
     padding: 0 12px 0 64px; /* text clears the greenhouse glyph */
   }
 
-  /* songbook adds the ← tuner pill next to the glyph; clear both */
+  /* songbook's pills follow the footnote instead of floating beside it */
   .shell-wide .footnote {
-    padding-left: 150px;
-    text-align: left;
+    padding-left: 12px;
     font-size: 0.72rem;
     opacity: 0.75;
-    min-height: 46px;
-    display: flex;
-    align-items: center;
   }
 
   /* greenhouse shrinks to a single glyph */
@@ -1993,8 +1993,66 @@ textarea:focus-visible {
   width: 100%;
   accent-color: var(--marigold);
 }
-.recording-heard {
+.recording-now {
   color: var(--cream);
+  font-size: 1.05rem;
+}
+.recording-now strong {
+  color: var(--marigold);
+  font-family: var(--font-mono);
+  font-size: 1.4rem;
+  margin-left: 4px;
+}
+/* Recognized chords as a compact, wrapping timeline of seek chips. */
+.chord-timeline {
+  display: grid;
+  gap: 8px;
+}
+.chord-timeline ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 2px 0;
+  list-style: none;
+  max-height: 180px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.chord-timeline button {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-height: 36px;
+  padding: 4px 10px;
+  border: 1px solid var(--stem);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--marigold);
+  font: inherit;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+.chord-timeline button span {
+  font-weight: 400;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--sage);
+}
+.chord-timeline button:hover {
+  background: var(--stem);
+}
+.chord-timeline button[aria-current] {
+  color: var(--soil);
+  background: var(--marigold);
+  border-color: var(--marigold);
+}
+.chord-timeline button[aria-current] span {
+  color: color-mix(in srgb, var(--soil) 75%, transparent);
 }
 .recording-notes summary {
   color: var(--sage);
@@ -2224,6 +2282,9 @@ textarea:focus-visible {
     margin-left: 36px;
   }
   .lyric-notes button {
+    min-height: 44px;
+  }
+  .chord-timeline button {
     min-height: 44px;
   }
 }

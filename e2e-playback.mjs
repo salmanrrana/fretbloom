@@ -33,8 +33,10 @@ const song = {
     sequenceKey: '[]',
     duration,
     notes: [{ start: 7, end: 8, midi: 64, confidence: 0.9 }],
+    chords: [],
     times: null,
     syncReason: null,
+    transpose: 0,
   },
   lyrics: {
     videoId,
@@ -56,11 +58,12 @@ const errors = []
 const unexpectedRequests = []
 let audioRequests = 0
 let unavailable = false
+let silentEmbed = false
 page.on('pageerror', (error) => errors.push(error.message))
 
 await page.route('**/api/**', (route) => {
   const path = new URL(route.request().url()).pathname
-  if (path !== `/api/youtube-audio/${videoId}`) {
+  if (!/^\/api\/youtube-audio\/(?:3VoWqGhLvF8|silentEmbed)$/.test(path)) {
     unexpectedRequests.push(path)
     return route.fulfill({ status: 500, body: 'Unexpected fixture request' })
   }
@@ -75,7 +78,9 @@ await page.route('**/api/**', (route) => {
 await page.route('https://www.youtube-nocookie.com/embed/**', (route) =>
   route.fulfill({
     contentType: 'text/html',
-    body: `<!doctype html><body>Blocked video fixture<script>
+    body: silentEmbed
+      ? '<!doctype html><body>Silent video fixture</body>'
+      : `<!doctype html><body>Blocked video fixture<script>
 window.addEventListener('message', event => {
   let data;
   try { data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data; }
@@ -161,6 +166,45 @@ try {
   console.log(
     'PASS unavailable fallback audio shows a retry without pretending playback is ready',
   )
+
+  // A player that never reports anything (blocked embed behind an extension)
+  // must not leave the transport disabled: the song audio takes over.
+  unavailable = false
+  silentEmbed = true
+  await page.getByRole('button', { name: '← Songbook', exact: true }).click()
+  await page.evaluate(() => {
+    const songs = JSON.parse(localStorage.getItem('fretbloom.songbook.v1'))
+    songs[0].youtubeId = 'silentEmbed'
+    songs[0].videoAnalysis.videoId = 'silentEmbed'
+    songs[0].lyrics.videoId = 'silentEmbed'
+    localStorage.setItem('fretbloom.songbook.v1', JSON.stringify(songs))
+  })
+  await page.reload()
+  await page.locator('.greenhouse-toggle').click()
+  await page.getByRole('button', { name: 'Songbook', exact: true }).click()
+  await page.locator('.songbook-open').click()
+  await page.locator('.video-frame').waitFor({ state: 'visible' })
+  assert.equal(
+    await page
+      .getByRole('button', { name: 'Play song', exact: true })
+      .isDisabled(),
+    true,
+  )
+  await page
+    .getByText('The video player didn’t start', { exact: false })
+    .waitFor({ timeout: 15_000 })
+  await page.waitForFunction(
+    () => document.querySelector('audio')?.readyState >= 3,
+  )
+  assert.equal(await page.locator('.video-frame').isVisible(), false)
+  assert.equal(
+    await page
+      .getByRole('button', { name: 'Play song', exact: true })
+      .isDisabled(),
+    false,
+  )
+  assert.deepEqual(errors, [])
+  console.log('PASS a silent embedded player falls back to the song audio')
 } finally {
   await browser.close()
 }

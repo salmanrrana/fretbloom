@@ -76,7 +76,9 @@ export default function App() {
         </p>
       </div>
 
-      <div className="greenhouse-corner">
+      <div
+        className={`greenhouse-corner${mode === 'songbook' ? ' in-songbook' : ''}`}
+      >
         {greenhouse && (
           <nav className="experiments" aria-label="Experimental modes">
             <p className="experiments-note">

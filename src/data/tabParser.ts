@@ -46,6 +46,9 @@ const SECTION_RE =
 /** Tokens like "x2", "-", "%" that decorate chord lines without being chords. */
 const FILLER_RE = /^(?:[-–—x×/%.]+|[x×]\d+)$/
 
+/** Print junk such as "Page 1/2" or "Page 2 of 3"; treated as a blank line. */
+const PAGE_RE = /^page\s*\d+\s*(?:\/|of)\s*\d+$/i
+
 /** A line is a "chord line" when every real token parses as a chord. */
 function isChordLine(line: string): boolean {
   const tokens = line.split(/[\s|,]+/).filter((t) => t && !FILLER_RE.test(t))
@@ -198,7 +201,7 @@ export function parseTab(text: string): ParsedTab {
       continue
     }
 
-    if (!line) {
+    if (!line || PAGE_RE.test(line)) {
       lines.push({ kind: 'blank', segments: [] })
       continue
     }

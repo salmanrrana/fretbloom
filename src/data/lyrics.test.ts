@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  chordsForLyrics,
   editedLyricCues,
   lyricRows,
   notesForLyrics,
@@ -70,7 +71,7 @@ describe('lyrics with detected notes', () => {
     ).toEqual([[0.5], [2, 3.5]])
   })
   it('preserves notes in introductions, breaks and endings', () => {
-    const rows = lyricRows(cues, notes, 10)
+    const rows = lyricRows(cues, [], notes, 10)
     expect(rows.map((row) => row.instrumental)).toEqual([
       true,
       false,
@@ -79,7 +80,31 @@ describe('lyrics with detected notes', () => {
       true,
     ])
     expect(rows.flatMap((row) => row.notes)).toEqual(notes)
-    expect(lyricRows(cues, [], 10)).toHaveLength(2)
+    expect(lyricRows(cues, [], [], 10)).toHaveLength(2)
+  })
+  it('puts chords on every line they sound through and drops single notes', () => {
+    const chords = [
+      { label: 'C', start: 0, end: 2.1 },
+      { label: 'G', start: 2.1, end: 5.15 },
+      { label: 'Am', start: 5.15, end: 10 },
+    ]
+    // C spills 0.1 s into "Morning light": jitter, not a chord for that line.
+    expect(
+      chordsForLyrics(cues, chords).map((group) =>
+        group.map((chord) => chord.label),
+      ),
+    ).toEqual([['G'], ['Am']])
+    const rows = lyricRows(cues, chords, notes, 10)
+    expect(
+      rows.map((row) => [row.instrumental, ...row.chords.map((c) => c.label)]),
+    ).toEqual([
+      [true, 'C'],
+      [false, 'G'],
+      [true, 'G'],
+      [false, 'Am'],
+      [true, 'Am'],
+    ])
+    expect(rows.every((row) => row.notes.length === 0)).toBe(true)
   })
   it('uses sorted LRC timestamps, including repeated lines and offsets', () => {
     expect(

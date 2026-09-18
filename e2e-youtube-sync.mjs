@@ -6,9 +6,19 @@ const base = process.env.BASE_URL ?? 'http://127.0.0.1:5201'
 const rate = 24000
 const notes = [64, 67, 69, 71]
 const starts = [0.6, 1.8, 3, 4.2]
-function wav({ silence = false, seconds = 5.6 } = {}) {
-  const length = Math.ceil(seconds * rate)
-  const buffer = Buffer.alloc(44 + length * 2)
+/** A plucked tone: quick attack, exponential decay, two overtones. */
+function pluck(frequency, t) {
+  return (
+    (Math.sin(2 * Math.PI * frequency * t) +
+      0.24 * Math.sin(4 * Math.PI * frequency * t) +
+      0.08 * Math.sin(6 * Math.PI * frequency * t)) *
+    Math.min(1, t / 0.015) *
+    Math.exp(-t * 1.4)
+  )
+}
+/** 16-bit mono WAV from float samples, normalized to half scale. */
+function pcmWav(samples) {
+  const buffer = Buffer.alloc(44 + samples.length * 2)
   buffer.write('RIFF')
   buffer.writeUInt32LE(buffer.length - 8, 4)
   buffer.write('WAVEfmt ', 8)
@@ -20,27 +30,60 @@ function wav({ silence = false, seconds = 5.6 } = {}) {
   buffer.writeUInt16LE(2, 32)
   buffer.writeUInt16LE(16, 34)
   buffer.write('data', 36)
-  buffer.writeUInt32LE(length * 2, 40)
-  for (let i = 0; i < length; i++) {
-    const time = i / rate
-    const n = starts.findIndex((start) => time >= start && time < start + 0.95)
-    if (silence || n < 0) continue
-    const t = time - starts[n]
-    const frequency = 440 * 2 ** ((notes[n] - 69) / 12)
-    const envelope =
-      Math.min(1, t / 0.015) *
-      Math.exp(-t * 1.4) *
-      Math.min(1, (0.95 - t) / 0.03)
-    const signal =
-      (Math.sin(2 * Math.PI * frequency * t) +
-        0.24 * Math.sin(4 * Math.PI * frequency * t) +
-        0.08 * Math.sin(6 * Math.PI * frequency * t)) *
-      envelope *
-      0.5
-    buffer.writeInt16LE(Math.round(signal * 32767), 44 + i * 2)
-  }
+  buffer.writeUInt32LE(samples.length * 2, 40)
+  const peak = samples.reduce((max, s) => Math.max(max, Math.abs(s)), 0) || 1
+  samples.forEach((sample, i) =>
+    buffer.writeInt16LE(Math.round((sample / peak) * 0.5 * 32767), 44 + i * 2),
+  )
   return buffer
 }
+function wav({ silence = false, seconds = 5.6 } = {}) {
+  const samples = new Float64Array(Math.ceil(seconds * rate))
+  if (silence) return pcmWav(samples)
+  for (let i = 0; i < samples.length; i++) {
+    const time = i / rate
+    const n = starts.findIndex((start) => time >= start && time < start + 0.95)
+    if (n < 0) continue
+    const t = time - starts[n]
+    samples[i] =
+      pluck(440 * 2 ** ((notes[n] - 69) / 12), t) *
+      Math.min(1, (0.95 - t) / 0.03)
+  }
+  return pcmWav(samples)
+}
+// Open-position guitar voicings strummed four times each, two seconds per
+// chord: the owner's real case (chords over lyrics, a repeated chord) in
+// miniature. The pasted sheet below repeats the opening C.
+const triadsId = 'triadsCGAmF'
+const triadSeconds = 2
+const triads = [
+  ['C', [48, 52, 55, 60, 64]],
+  ['G', [43, 47, 50, 55, 59, 67]],
+  ['Am', [45, 52, 57, 60, 64]],
+  ['F', [41, 48, 53, 57, 60, 65]],
+  ['C', [48, 52, 55, 60, 64]],
+]
+function strummedWav() {
+  const samples = new Float64Array(triads.length * triadSeconds * rate)
+  triads.forEach(([, midis], chord) => {
+    const chordEnd = (chord + 1) * triadSeconds
+    for (let strum = 0; strum < triadSeconds / 0.5; strum++) {
+      const at = chord * triadSeconds + strum * 0.5
+      midis.forEach((midi, string) => {
+        const onset = at + string * 0.012
+        const frequency = 440 * 2 ** ((midi - 69) / 12)
+        for (let i = Math.ceil(onset * rate); i < chordEnd * rate; i++) {
+          const time = i / rate
+          samples[i] +=
+            pluck(frequency, time - onset) *
+            Math.min(1, (chordEnd - time) / 0.03)
+        }
+      })
+    }
+  })
+  return pcmWav(samples)
+}
+const strummed = strummedWav()
 const recording = {
   name: 'known-guitar-phrase.wav',
   mimeType: 'audio/wav',
@@ -79,6 +122,12 @@ await page.route('**/api/youtube-audio/*', async (route) => {
     })
   if (id === 'YE7VzlLtp-4')
     await new Promise((resolve) => setTimeout(resolve, 1500))
+  if (id === triadsId)
+    return route.fulfill({
+      contentType: 'audio/wav',
+      headers: { 'x-video-title': encodeURIComponent('Strummed triads') },
+      body: strummed,
+    })
   await route.fulfill({
     contentType: 'audio/wav',
     headers: { 'x-video-title': encodeURIComponent('Known YouTube phrase') },
@@ -129,7 +178,13 @@ try {
   console.log(
     'PASS URL-only import automatically retrieves audio, detects notes, and saves video timing',
   )
-  await page.getByRole('button', { name: 'Original tab', exact: true }).click()
+  // The pasted sheet is the default play-along view; the toggle still works.
+  assert.ok(await page.locator('.sheet').isVisible())
+  await page
+    .getByRole('button', { name: 'Lyrics & notes', exact: true })
+    .click()
+  assert.equal(await page.locator('.sheet').isVisible(), false)
+  await page.getByRole('button', { name: 'Chord sheet', exact: true }).click()
   await page.locator('.sheet [data-step="2"]').click()
   const video = page
     .frames()
@@ -188,14 +243,15 @@ try {
   await page.locator('.greenhouse-toggle').click()
   await page.getByRole('button', { name: 'Songbook', exact: true }).click()
   await page.locator('.songbook-open').click()
-  await page
-    .getByText('4 estimated notes', { exact: false })
-    .waitFor({ timeout: 20000 })
+  await page.locator('.recording-now').waitFor({ timeout: 20000 })
   const preserved = await page.evaluate(
     () => JSON.parse(localStorage.getItem('fretbloom.songbook.v1'))[0],
   )
   assert.deepEqual(preserved.syncTimes, manualTimes)
   assert.equal(preserved.syncSource, 'manual')
+  assert.equal(preserved.videoAnalysis.notes.length, notes.length)
+  assert.ok(Array.isArray(preserved.videoAnalysis.chords))
+  assert.equal(preserved.videoAnalysis.transpose, 0)
   console.log(
     'PASS canceled edits restore cached timing; automatic analysis preserves manual timing',
   )
@@ -237,6 +293,7 @@ try {
   await page.getByRole('button', { name: 'Cancel analysis' }).click()
   await page.getByText('Analysis canceled.', { exact: true }).waitFor()
   await page.waitForTimeout(1800)
+  assert.equal(await page.locator('.recording-now').count(), 0)
   assert.equal(await page.locator('.recording-notes').count(), 0)
   console.log('PASS canceled analysis cannot write a late result')
   await page.getByRole('button', { name: '← Songbook', exact: true }).click()
@@ -245,13 +302,97 @@ try {
     .getByLabel('YouTube link', { exact: true })
     .fill('https://youtu.be/dQw4w9WgXcQ')
   await page.getByRole('button', { name: 'Open YouTube song' }).click()
-  await page
-    .getByText('4 estimated notes', { exact: false })
-    .waitFor({ timeout: 20000 })
+  await page.locator('.recording-now').waitFor({ timeout: 20000 })
   assert.equal(await page.locator('.sheet').count(), 0)
   assert.ok(await page.locator('.video-frame').isVisible())
   assert.deepEqual(errors, [])
   console.log('PASS YouTube link alone works without a tab; no page errors')
+
+  // The owner's concern end to end: a chord sheet pasted over lyrics, with a
+  // repeated chord, lights up in time with the strummed recording.
+  await page.getByRole('button', { name: '← Songbook', exact: true }).click()
+  await page.locator('.setlist-add').click()
+  await page
+    .getByLabel('YouTube link', { exact: true })
+    .fill(`https://www.youtube.com/watch?v=${triadsId}`)
+  await page.getByLabel('Paste tab').fill(
+    `[Verse]
+C
+Someone told me long ago
+C
+There's a calm before the storm
+G
+I know it's been coming
+Am
+Have you ever seen
+F
+The rain coming down
+C
+On a sunny day`,
+  )
+  await page.getByRole('button', { name: 'Open YouTube song' }).click()
+  await page.locator('.recording-now').waitFor({ timeout: 20000 })
+  assert.deepEqual(
+    await page.$$eval('.chord-timeline ol button', (buttons) =>
+      buttons.map(
+        (button) => button.getAttribute('aria-label').split(' at ')[0],
+      ),
+    ),
+    triads.map(([label]) => label),
+  )
+  console.log('PASS the chord timeline hears C, G, Am, F, C in order')
+  await page
+    .getByText('synced to video', { exact: false })
+    .waitFor({ timeout: 5000 })
+  const strummedSong = await page.evaluate(
+    () => JSON.parse(localStorage.getItem('fretbloom.songbook.v1'))[0],
+  )
+  const sheetTimes = strummedSong.syncTimes
+  assert.equal(sheetTimes.length, 6)
+  // Two Cs open the sheet: the first at the start, the second somewhere
+  // inside the opening C; every later change lands on its strum.
+  assert.ok(sheetTimes[0] < 0.5, `first C at ${sheetTimes[0]}`)
+  assert.ok(
+    sheetTimes[1] > sheetTimes[0] && sheetTimes[1] < triadSeconds,
+    `repeated C at ${sheetTimes[1]}`,
+  )
+  for (let step = 2; step < 6; step++)
+    assert.ok(
+      Math.abs(sheetTimes[step] - (step - 1) * triadSeconds) < 0.35,
+      `step ${step} at ${sheetTimes[step]}`,
+    )
+  assert.ok(await page.locator('.sheet').isVisible())
+  assert.equal(
+    await page.locator('.sheet-chord.now').getAttribute('data-step'),
+    '0',
+  )
+  const strummedVideo = page
+    .frames()
+    .find((frame) => frame.url().includes('youtube-nocookie.com'))
+  const playedAt = Date.now()
+  await strummedVideo.locator('#play').click()
+  for (let step = 1; step < 6; step++) {
+    await page.waitForFunction(
+      (expected) =>
+        document.querySelector('.sheet-chord.now')?.dataset.step === expected,
+      String(step),
+      { timeout: 12000 },
+    )
+    const elapsed = (Date.now() - playedAt) / 1000
+    assert.ok(
+      Math.abs(elapsed - sheetTimes[step]) < 0.7,
+      `step ${step} lit at ${elapsed.toFixed(2)}s, synced at ${sheetTimes[step].toFixed(2)}s`,
+    )
+  }
+  assert.equal(await page.locator('.recording-now strong').innerText(), 'C')
+  await page.screenshot({
+    path: '/tmp/fretbloom-chordsheet-playalong.png',
+    fullPage: true,
+  })
+  assert.deepEqual(errors, [])
+  console.log(
+    'PASS the pasted chord sheet follows the strummed recording step by step',
+  )
 } finally {
   await browser.close()
 }

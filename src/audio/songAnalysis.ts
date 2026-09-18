@@ -1,3 +1,5 @@
+import { recognizeChords } from './chordRecognition'
+
 import type { SongAnalysis, SongFrame } from './songAnalysisTypes'
 
 const MAX_FILE_BYTES = 50 * 1024 * 1024
@@ -362,7 +364,9 @@ function pitchFeatures(
       0.24 * magnitudeAt(magnitudes, frequency * 3, sampleRate) +
       0.14 * magnitudeAt(magnitudes, frequency * 4, sampleRate)
     saliences.push({ midi, value, fundamental })
-    chroma[((midi % 12) + 12) % 12] += value * value
+    // Linear salience keeps the chroma broad enough for chord templates;
+    // squaring it let one bass or vocal note swamp the other chord tones.
+    chroma[((midi % 12) + 12) % 12] += value
   }
 
   const chromaTotal = chroma.reduce((sum, value) => sum + value, 0)
@@ -448,6 +452,7 @@ function detectedNotes(
 /**
  * Lightweight local analysis for synchronization evidence. Chroma remains
  * useful for chords; `midi` is deliberately null unless one pitch dominates.
+ * `chords` is a sheet-independent chord timeline read from the chroma.
  */
 export function analyzeSamples(
   samples: Float32Array,
@@ -474,7 +479,7 @@ export function analyzeSamples(
   throwIfAborted(options.signal)
   const duration = samples.length / sampleRate
   if (samples.length === 0)
-    return { duration: 0, hopSeconds, frames: [], notes: [] }
+    return { duration: 0, hopSeconds, frames: [], notes: [], chords: [] }
 
   const hopSize = Math.max(1, Math.round(hopSeconds * sampleRate))
   const frameCount = Math.max(1, Math.ceil(samples.length / hopSize))
@@ -531,10 +536,12 @@ export function analyzeSamples(
   }
 
   reportProgress(options.onProgress, 1)
+  const hop = hopSize / sampleRate
   return {
     duration,
-    hopSeconds: hopSize / sampleRate,
+    hopSeconds: hop,
     frames,
-    notes: detectedNotes(frames, confidences, duration, hopSize / sampleRate),
+    notes: detectedNotes(frames, confidences, duration, hop),
+    chords: recognizeChords(frames, hop, duration),
   }
 }

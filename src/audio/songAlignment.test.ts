@@ -1,4 +1,9 @@
 import { describe, expect, test } from 'vitest'
+import {
+  CCR_RAIN_RUNS,
+  ccrRainAnalysis,
+  ccrRainTargets,
+} from './fixtures/ccrRain'
 import { alignSong } from './songAlignment'
 import { analyzeSamples } from './songAnalysis'
 import type { SongAnalysis, SongFrame, SyncTarget } from './songAnalysisTypes'
@@ -36,6 +41,7 @@ function analysis(frames: SongFrame[]): SongAnalysis {
     hopSeconds: HOP,
     frames,
     notes: [],
+    chords: [],
   }
 }
 
@@ -86,7 +92,9 @@ describe('alignSong', () => {
   test('does not join one target across an intervening different chord', () => {
     const c = [60, 64, 67]
     const g = [55, 59, 62]
-    for (const interveningFrames of [2, 3, 4]) {
+    // Anything at least a chord's minimum length (0.25 s) counts as a chord;
+    // a shorter blip may be bridged as a passing tone the paste omits.
+    for (const interveningFrames of [3, 4, 5]) {
       const laterC = 0.4 + interveningFrames * HOP
       const laterG = laterC + 30 * HOP
       const twoTargets = alignSong(
@@ -159,6 +167,20 @@ describe('alignSong', () => {
     ])
     expect(wrongOctave.reliable).toBe(false)
     expect(wrongOctave.reason).toMatch(/not heard clearly enough/i)
+
+    // A recording below the sheet must follow too, not only one above it.
+    const belowSheet = alignSong(
+      analysis([
+        ...section(0.4, 2, [58], 58),
+        ...section(0.6, 3, [60], 60),
+        ...section(0.9, 2, [62], 62),
+        ...section(1.1, 3, [65], 65),
+      ]),
+      [note(60), note(62), note(64), note(67)],
+    )
+    expect(belowSheet.reliable).toBe(true)
+    expect(belowSheet.transpose).toBe(-2)
+    expect(belowSheet.times).toEqual([0.4, 0.6, 0.9, 1.1])
   })
 
   test('aligns simultaneous numbered-tab frets from chroma when MIDI is ambiguous', () => {
@@ -249,13 +271,13 @@ describe('alignSong', () => {
     expect(alignedChords.times[2]).toBeGreaterThan(1.8)
   })
 
-  test('returns candidates but rejects silence, broadband noise, and a wrong sequence', () => {
+  test('rejects silence, broadband noise, and a wrong sequence', () => {
     const silent = alignSong(
       analysis(Array.from({ length: 30 }, (_, index) => silence(index * HOP))),
       [chord(60, 64, 67), chord(55, 59, 62)],
     )
     expect(silent.reliable).toBe(false)
-    expect(silent.times).toHaveLength(2)
+    expect(silent.times).toEqual([])
     expect(silent.reason).toMatch(/too quiet/i)
 
     const noisyFrames = Array.from({ length: 30 }, (_, index) =>
@@ -266,7 +288,6 @@ describe('alignSong', () => {
       chord(55, 59, 62),
     ])
     expect(noisy.reliable).toBe(false)
-    expect(noisy.times).toHaveLength(2)
 
     const wrongOrder = alignSong(
       analysis([
@@ -277,7 +298,6 @@ describe('alignSong', () => {
       [chord(60, 64, 67), chord(55, 59, 62), chord(57, 60, 64)],
     )
     expect(wrongOrder.reliable).toBe(false)
-    expect(wrongOrder.times).toHaveLength(3)
   })
 
   test('rejects a chord sequence supported by only one frame per target', () => {
@@ -291,19 +311,18 @@ describe('alignSong', () => {
     )
 
     expect(aligned.reliable).toBe(false)
-    expect(aligned.reason).toMatch(/not heard clearly enough/i)
+    expect(aligned.reason).toMatch(/too short/i)
   })
 
-  test('explicitly refuses an unobservable repeated target boundary', () => {
+  test('splits a repeated chord evenly and stays reliable', () => {
     const aligned = alignSong(analysis(section(0.5, 10, [60, 64, 67])), [
       chord(60, 64, 67),
       chord(60, 64, 67),
     ])
 
-    expect(aligned.times).toHaveLength(2)
-    expect(aligned.reliable).toBe(false)
-    expect(aligned.confidence).toBeLessThanOrEqual(0.45)
-    expect(aligned.reason).toMatch(/sound identical|boundary/i)
+    expect(aligned.reliable).toBe(true)
+    expect(aligned.transpose).toBe(0)
+    expect(aligned.times).toEqual([0.5, 1])
   })
 
   test('bounds work for oversized input and asks for a smaller target section', () => {
@@ -316,23 +335,110 @@ describe('alignSong', () => {
     const aligned = alignSong(analysis(frames), targets)
 
     expect(aligned.reliable).toBe(false)
-    expect(aligned.times).toHaveLength(targets.length)
+    expect(aligned.times).toEqual([])
     expect(aligned.reason).toMatch(/600 or fewer/i)
   })
 
   test('reduces a long analysis before aligning without losing the ordered melody', () => {
-    const targets = Array.from({ length: 300 }, (_, index) =>
+    const targets = Array.from({ length: 600 }, (_, index) =>
       note(48 + (index % 25)),
     )
     const frames = targets.flatMap((target, targetIndex) =>
       section(targetIndex * 1.4, 14, target.midis, target.midis[0]),
     )
-    // 4,200 frames x 300 targets would exceed the 1.2m-cell work cap.
+    // 8,400 frames x 600 targets exceeds the 4m-cell work cap.
+    const started = performance.now()
     const aligned = alignSong(analysis(frames), targets)
+    const elapsed = performance.now() - started
 
     expect(aligned.reliable).toBe(true)
     expect(aligned.times).toHaveLength(targets.length)
     expect(aligned.times[0]).toBeCloseTo(0)
-    expect(aligned.times.at(-1)).toBeCloseTo(418.6)
+    expect(aligned.times.at(-1)).toBeCloseTo(838.6)
+    expect(elapsed).toBeLessThan(3_000)
+  })
+
+  test('aligns the CCR chord sheet to the real recording', () => {
+    const aligned = alignSong(ccrRainAnalysis(), ccrRainTargets())
+
+    expect(aligned.reliable).toBe(true)
+    expect(aligned.transpose).toBe(0)
+    expect(aligned.reason).toBe('')
+    expect(aligned.times).toHaveLength(68)
+    expect(strictlyIncreasing(aligned.times)).toBe(true)
+    expect(outsideTolerance(aligned.times)).toEqual([])
+  })
+
+  test('follows the real recording when the sheet is written in another key', () => {
+    const sheetUpTwo = ccrRainTargets().map((target) => ({
+      ...target,
+      midis: target.midis.map((midi) => midi + 2),
+    }))
+    const aligned = alignSong(ccrRainAnalysis(), sheetUpTwo)
+
+    expect(aligned.reliable).toBe(true)
+    expect(aligned.transpose).toBe(-2)
+    expect(outsideTolerance(aligned.times)).toEqual([])
+  })
+
+  test('places a partial sheet on the part it covers and refuses one that skips chords', () => {
+    // The first verse alone: C C G C C C G C, sheet steps 5-12.
+    const verse = ccrRainTargets().slice(5, 13)
+    const aligned = alignSong(ccrRainAnalysis(), verse)
+
+    expect(aligned.reliable).toBe(true)
+    expect(aligned.transpose).toBe(0)
+    expect(aligned.reason).toBe('The sheet covers 0:04–0:46 of the song.')
+    expect(strictlyIncreasing(aligned.times)).toBe(true)
+    // The five audible changes, from the first C in the recording.
+    const changes = [0, 2, 3, 6, 7].map((step) => aligned.times[step])
+    changes.forEach((time, index) =>
+      expect(
+        Math.abs(time - [4.52, 21.25, 25.26, 38.14, 41.9][index]),
+      ).toBeLessThan(0.3),
+    )
+
+    // A chorus-only paste has no verse chords, so its C would have to
+    // bridge the F at 0:46: refused, naming what was heard.
+    const chorus = alignSong(ccrRainAnalysis(), ccrRainTargets().slice(13, 28))
+    expect(chorus.reliable).toBe(false)
+    expect(chorus.reason).toMatch(/At 0:46 the recording sounds like F/)
+  })
+
+  test('tolerates one chord that is not in the recording and names it', () => {
+    const targets = ccrRainTargets()
+    targets.splice(29, 0, { kind: 'chord', midis: [62, 66, 69], label: 'D' })
+    const aligned = alignSong(ccrRainAnalysis(), targets)
+
+    expect(aligned.reliable).toBe(true)
+    expect(aligned.reason).toBe('Chord 30 (D) was not heard clearly; check it.')
+    const withoutD = [...aligned.times.slice(0, 29), ...aligned.times.slice(30)]
+    expect(outsideTolerance(withoutD)).toEqual([])
+  })
+
+  test('reports chords pasted past the end of the music', () => {
+    const tail = { kind: 'chord' as const, midis: [65, 69, 72], label: 'F' }
+    const oneExtra = alignSong(ccrRainAnalysis(), [...ccrRainTargets(), tail])
+    expect(oneExtra.reliable).toBe(true)
+    expect(oneExtra.reason).toBe('Chord 69 (F) falls after the music ends.')
+
+    const manyExtra = alignSong(ccrRainAnalysis(), [
+      ...ccrRainTargets(),
+      ...Array.from({ length: 12 }, () => tail),
+    ])
+    expect(manyExtra.reliable).toBe(false)
+    expect(manyExtra.reason).toMatch(/fall after the music ends/)
   })
 })
+
+function strictlyIncreasing(times: number[]): boolean {
+  return times.every((time, index) => index === 0 || time > times[index - 1])
+}
+
+function outsideTolerance(times: number[]) {
+  return CCR_RAIN_RUNS.map((run) => ({
+    label: run.label,
+    error: times[run.firstTarget] - run.start,
+    tolerance: run.tolerance,
+  })).filter(({ error, tolerance }) => Math.abs(error) > tolerance)
+}

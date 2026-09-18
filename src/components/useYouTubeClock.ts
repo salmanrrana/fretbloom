@@ -13,6 +13,24 @@ export interface VideoClock {
   setRate: (rate: number) => void
 }
 
+/**
+ * The clock's position as state, sampled ten times a second. The player reads
+ * it once and hands it down, so every live readout shares one poll.
+ */
+export function useClockPosition(clock: VideoClock): number {
+  const [position, setPosition] = useState(0)
+  useEffect(() => {
+    const tick = () => {
+      const time = clock.time()
+      if (time !== null) setPosition(time)
+    }
+    tick()
+    const timer = window.setInterval(tick, 100)
+    return () => window.clearInterval(timer)
+  }, [clock])
+  return position
+}
+
 /** Follow only this iframe's reports, interpolating at the video's playback speed. */
 export function useYouTubeClock(
   iframeRef: RefObject<HTMLIFrameElement | null>,

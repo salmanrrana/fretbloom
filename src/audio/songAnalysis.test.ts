@@ -69,6 +69,7 @@ describe('analyzeSamples', () => {
 
     expect(analysis.duration).toBe(1)
     expect(analysis.notes).toEqual([])
+    expect(analysis.chords.map((chord) => chord.label)).toEqual(['N'])
     expect(analysis.frames.length).toBeGreaterThan(5)
     expect(
       analysis.frames.every((frame) => frame.midi === null && frame.rms === 0),
@@ -145,6 +146,7 @@ describe('analyzeSamples', () => {
         settledFrames.length,
     ).toBeGreaterThan(0.8)
     expect(analysis.notes).toEqual([])
+    expect(analysis.chords.map((chord) => chord.label)).toContain('C')
   })
 
   test('rejects broadband noise as ambiguous', () => {

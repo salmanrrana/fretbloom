@@ -25,8 +25,10 @@ const saved = {
     sequenceKey: '[]',
     duration: 10,
     notes,
+    chords: [],
     times: null,
     syncReason: 'No tab',
+    transpose: 0,
   },
 }
 const browser = await chromium.launch()
@@ -107,7 +109,8 @@ try {
     .find((frame) => frame.url().includes('youtube-nocookie'))
   assert.ok(video)
   await page.getByRole('button', { name: 'C#4 at 0:02', exact: true }).click()
-  assert.equal(Number(await video.locator('body').getAttribute('data-seek')), 2)
+  // The seek reaches the player as a cross-frame message; wait for it.
+  await video.locator('body[data-seek="2"]').waitFor()
   await video.evaluate(() => window.setTime(5.1))
   await page.waitForFunction(() =>
     document

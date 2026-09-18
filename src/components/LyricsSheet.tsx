@@ -8,13 +8,19 @@ import {
   readCaptions,
   type SongLyrics,
 } from '../data/lyrics'
+import { sounds, type TimedChord } from '../data/songSync'
 import type { VideoClock } from './useYouTubeClock'
+import { revealInPane } from './revealInPane'
 
 interface Props {
   analysis: VideoAnalysis
+  /** What sounds when — the synced sheet if there is one, else what was heard. */
+  chords: readonly TimedChord[]
   saved?: SongLyrics
   suggestedText: string
   clock: VideoClock
+  /** Shared clock position, sampled by the player. */
+  position: number
   onSave: (lyrics: SongLyrics) => void
   onTimingChange: (marking: boolean) => void
   onStartTiming: () => void
@@ -26,8 +32,14 @@ function timestamp(time: number): string {
   return `${Math.floor(time / 60)}:${String(Math.floor(time % 60)).padStart(2, '0')}`
 }
 
+/**
+ * Lyrics with what sounds during each line: the chords, or single-note
+ * estimates when the song has no chords. Finds captions or matched lyrics,
+ * accepts a paste, and times plain lines by tapping.
+ */
 export function LyricsSheet(props: Props) {
-  const { analysis, saved, suggestedText, clock, onTimingChange } = props
+  const { analysis, chords, saved, suggestedText, clock, position } = props
+  const { onTimingChange } = props
   const latest = useRef(props)
   latest.current = props
   const [follow, setFollow] = useState(true)
@@ -38,7 +50,6 @@ export function LyricsSheet(props: Props) {
   const [attempt, setAttempt] = useState(0)
   const [marking, setMarking] = useState(false)
   const [marks, setMarks] = useState<number[]>([])
-  const [position, setPosition] = useState(0)
   const request = useRef<AbortController | null>(null)
   const sheet = useRef<HTMLDivElement>(null)
   const lyrics = saved?.videoId === analysis.videoId ? saved : undefined
@@ -49,9 +60,9 @@ export function LyricsSheet(props: Props) {
   const rows = useMemo(
     () =>
       lyrics?.cues
-        ? lyricRows(lyrics.cues, analysis.notes, analysis.duration)
+        ? lyricRows(lyrics.cues, chords, analysis.notes, analysis.duration)
         : [],
-    [lyrics, analysis],
+    [lyrics, chords, analysis],
   )
   const current = rows.findIndex(
     (row) => position >= row.start && position < row.end,
@@ -141,30 +152,9 @@ export function LyricsSheet(props: Props) {
   }, [analysis.videoId, analysis.duration, attempt])
 
   useEffect(() => {
-    const tick = () => {
-      const time = clock.time()
-      if (time !== null) setPosition(time)
-    }
-    tick()
-    const timer = window.setInterval(tick, 100)
-    return () => window.clearInterval(timer)
-  }, [clock])
-
-  useEffect(() => {
-    const container = sheet.current
-    const row = container?.querySelector<HTMLElement>('[aria-current="true"]')
-    if (!follow || !container || !row || !clock.isPlaying()) return
-    // Scroll the lyrics pane, never pull the entire page away from the video.
-    if (
-      row.offsetTop < container.scrollTop ||
-      row.offsetTop + row.offsetHeight >
-        container.scrollTop + container.clientHeight
-    ) {
-      container.scrollTop = Math.max(
-        0,
-        row.offsetTop - container.clientHeight / 3,
-      )
-    }
+    const pane = sheet.current
+    const row = pane?.querySelector<HTMLElement>('[aria-current="true"]')
+    if (follow && pane && row && clock.isPlaying()) revealInPane(pane, row)
   }, [current, clock, follow])
 
   useEffect(() => {
@@ -309,13 +299,16 @@ export function LyricsSheet(props: Props) {
               ) : (
                 'Your lyrics'
               )}{' '}
-              · Notes are estimates, grouped by line timing.
+              ·{' '}
+              {chords.length
+                ? 'Chords are grouped by line timing.'
+                : 'Notes are estimates, grouped by line timing.'}
             </p>
           )}
           {!lyrics && !loading && (
             <p className="recording-help">
-              The detected notes stay available below the video. Add lyrics to
-              see both together.
+              The chords stay available below the video. Add lyrics to see both
+              together.
             </p>
           )}
           {lyrics && !lyrics.cues && !marking && (
@@ -383,17 +376,28 @@ export function LyricsSheet(props: Props) {
                       </button>
                       <div
                         className="lyric-notes"
-                        aria-label={`Notes for ${row.text}`}
+                        aria-label={`${chords.length ? 'Chords' : 'Notes'} for ${row.text}`}
                       >
-                        {row.notes.length ? (
+                        {row.chords.length ? (
+                          row.chords.map((chord, n) => (
+                            <button
+                              key={n}
+                              onClick={() => clock.seek(chord.start)}
+                              className={
+                                sounds(chord, position) ? 'sounding' : ''
+                              }
+                              aria-label={`${chord.label} at ${timestamp(chord.start)}`}
+                            >
+                              {chord.label}
+                            </button>
+                          ))
+                        ) : row.notes.length ? (
                           row.notes.map((note, n) => (
                             <button
                               key={n}
                               onClick={() => clock.seek(note.start)}
                               className={
-                                position >= note.start && position < note.end
-                                  ? 'sounding'
-                                  : ''
+                                sounds(note, position) ? 'sounding' : ''
                               }
                               aria-label={`${midiToNameWithOctave(note.midi)} at ${timestamp(note.start)}`}
                             >
@@ -402,7 +406,9 @@ export function LyricsSheet(props: Props) {
                           ))
                         ) : (
                           <span className="recording-help">
-                            No clear notes detected in this line.
+                            {chords.length
+                              ? 'No chord heard in this line.'
+                              : 'No clear notes detected in this line.'}
                           </span>
                         )}
                       </div>

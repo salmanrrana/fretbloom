@@ -7,27 +7,32 @@ function timestamp(time: number) {
   return `${Math.floor(time / 60)}:${String(Math.floor(time % 60)).padStart(2, '0')}`
 }
 
+/** The embedded video (or in-page song audio) with one transport for both. */
 export function SongPlayback({
   videoId,
   title,
   duration,
   playback,
+  position,
 }: {
   videoId: string
   title: string
   duration: number
   playback: Playback
+  /** Shared clock position, sampled by the player. */
+  position: number
 }) {
   const { clock, useAudio } = playback
-  const [position, setPosition] = useState(0)
   const [speed, setSpeed] = useState('1')
-  useEffect(() => {
-    const timer = window.setInterval(() => setPosition(clock.time() ?? 0), 100)
-    return () => window.clearInterval(timer)
-  }, [clock])
   useEffect(() => {
     setSpeed('1')
   }, [useAudio])
+  // Step-aligned on purpose: the browser snaps a range's value to its step,
+  // and a controlled value that differs from the snapped DOM value makes
+  // React treat the native change event as a user edit and seek back to the
+  // old position. The end of the range must be on the grid too.
+  const sliderMax = Math.max(1, Math.round(duration * 10) / 10)
+  const sliderValue = Math.min(Math.round(position * 10) / 10, sliderMax)
 
   return (
     <section className="song-playback" aria-label="Song playback">
@@ -45,10 +50,17 @@ export function SongPlayback({
         <div className="song-audio-status">
           <strong>Play along with the song audio</strong>
           <p>
-            {playback.videoError === 101 || playback.videoError === 150
-              ? 'This upload blocks embedded video. Its audio plays here with your lyrics and notes.'
-              : 'Use the song audio here with your lyrics and notes.'}
+            {playback.videoProblem === 'blocked'
+              ? 'YouTube won’t play this video inside other sites, so its audio plays here with your chords and lyrics.'
+              : playback.videoProblem === 'silent'
+                ? 'The video player didn’t start, so the song audio plays here with your chords and lyrics.'
+                : 'The song audio plays here with your chords and lyrics.'}
           </p>
+          {playback.videoProblem === 'silent' && playback.videoReady && (
+            <button className="quiet-btn" onClick={playback.showVideo}>
+              The video is ready now — show it
+            </button>
+          )}
           {!playback.ready && !playback.audioError && (
             <p role="status">Preparing song playback…</p>
           )}
@@ -118,9 +130,9 @@ export function SongPlayback({
             type="range"
             aria-label="Song position"
             min={0}
-            max={Math.max(duration, 1)}
+            max={sliderMax}
             step={0.1}
-            value={Math.min(position, Math.max(duration, 1))}
+            value={sliderValue}
             disabled={!playback.ready || !duration}
             onChange={(event) => clock.seek(Number(event.target.value))}
           />
