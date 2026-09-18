@@ -28,3 +28,6 @@ dist-ssr
 
 # Bones run evidence
 .bones
+
+# Project-local YouTube tooling
+.tools/
