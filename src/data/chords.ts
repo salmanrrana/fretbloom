@@ -34,6 +34,22 @@ export const CHORDS: Record<string, ChordShape> = {
   Dsus4:{ name: 'Dsus4',frets: [-1, -1, 0, 2, 3, 3], fingers: [0, 0, 0, 1, 2, 3], baseFret: 1 },
   Asus2:{ name: 'Asus2',frets: [-1, 0, 2, 2, 0, 0], fingers: [0, 0, 1, 2, 0, 0], baseFret: 1 },
   Fmaj7:{ name: 'Fmaj7',frets: [-1, -1, 3, 2, 1, 0], fingers: [0, 0, 3, 2, 1, 0], baseFret: 1 },
+  Cmaj7:{ name: 'Cmaj7',frets: [-1, 3, 2, 0, 0, 0], fingers: [0, 3, 2, 0, 0, 0], baseFret: 1 },
+  Dmaj7:{ name: 'Dmaj7',frets: [-1, -1, 0, 2, 2, 2], fingers: [0, 0, 0, 1, 2, 3], baseFret: 1 },
+  Gmaj7:{ name: 'Gmaj7',frets: [3, 2, 0, 0, 0, 2],  fingers: [3, 2, 0, 0, 0, 1], baseFret: 1 },
+  Amaj7:{ name: 'Amaj7',frets: [-1, 0, 2, 1, 2, 0], fingers: [0, 0, 2, 1, 3, 0], baseFret: 1 },
+  C7:   { name: 'C7',   frets: [-1, 3, 2, 3, 1, 0], fingers: [0, 3, 2, 4, 1, 0], baseFret: 1 },
+  Am7:  { name: 'Am7',  frets: [-1, 0, 2, 0, 1, 0], fingers: [0, 0, 2, 0, 1, 0], baseFret: 1 },
+  Bm7:  { name: 'Bm7',  frets: [-1, 2, 0, 2, 0, 2], fingers: [0, 1, 0, 2, 0, 3], baseFret: 1 },
+  Dm7:  { name: 'Dm7',  frets: [-1, -1, 0, 2, 1, 1], fingers: [0, 0, 0, 2, 1, 1], baseFret: 1 },
+  Em7:  { name: 'Em7',  frets: [0, 2, 0, 0, 0, 0],  fingers: [0, 2, 0, 0, 0, 0], baseFret: 1 },
+  Asus4:{ name: 'Asus4',frets: [-1, 0, 2, 2, 3, 0], fingers: [0, 0, 1, 2, 3, 0], baseFret: 1 },
+  A7sus4:{ name: 'A7sus4', frets: [-1, 0, 2, 0, 3, 0], fingers: [0, 0, 2, 0, 3, 0], baseFret: 1 },
+  Dsus2:{ name: 'Dsus2',frets: [-1, -1, 0, 2, 3, 0], fingers: [0, 0, 0, 1, 3, 0], baseFret: 1 },
+  Esus4:{ name: 'Esus4',frets: [0, 2, 2, 2, 0, 0],  fingers: [0, 2, 3, 4, 0, 0], baseFret: 1 },
+  // Slash chords are normally derived from the base shape (see chordEngine);
+  // D/F# is listed so the diagram shows the usual index-on-F# fingering.
+  'D/F#':{ name: 'D/F#', frets: [2, -1, 0, 2, 3, 2], fingers: [1, 0, 0, 2, 4, 3], baseFret: 1 },
 }
 
 /** MIDI numbers of the sounding strings, low to high. */

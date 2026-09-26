@@ -13,7 +13,11 @@
     "check:fast": "npm run lint && npm run typecheck && npm test",
     "check:staged": "node scripts/check-staged.mjs",
     "prepare": "node scripts/install-hooks.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "setup:youtube": "node scripts/setup-youtube.mjs",
+    "start": "node server/index.ts",
+    "test:youtube": "node e2e-youtube-sync.mjs",
+    "test:lyrics": "node e2e-lyrics.mjs"
   },
   "dependencies": {
     "react": "^19.2.8",
@@ -30,5 +34,8 @@
     "typescript": "~6.0.2",
     "vite": "^8.2.0",
     "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }
