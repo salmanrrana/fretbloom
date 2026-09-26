@@ -28,9 +28,11 @@ recording. No audio files or manual downloads are needed.
 sections included. Press play and the sounding chord lights up, the next chord
 change is hinted, the sheet scrolls to keep the lit chord in view, and clicking
 any chord seeks the video. The arrow keys and space step through by hand.
-**Chords from this video** beside the player shows the chord sounding now, a
-timeline of the chords recognized in the recording (tap one to seek), and the
-sync status. When the recording sits in a different key from your sheet, it
+**Chords from this video** beside the player shows the sync status and, folded
+one tap away, a timeline of the chords recognized in the recording (tap one to
+seek). With a YouTube link and no sheet, the chord card follows the chords
+heard in the recording instead, with a diagram and the chord coming up next.
+When the recording sits in a different key from your sheet, it
 says by how many semitones and suggests a capo fret or a transposition; the
 sheet still follows. A sheet that covers only part of the song (a verse to
 practice) is placed on that part and the panel says which stretch it covers;

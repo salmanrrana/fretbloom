@@ -12,7 +12,9 @@ import { ChordDiagram } from './ChordDiagram'
 import { TabBlock } from './TabBlock'
 import { LyricsSheet } from './LyricsSheet'
 import { YouTubeAnalysisPanel } from './YouTubeAnalysisPanel'
+import { resolveChord } from '../data/chordEngine'
 import {
+  chordAt,
   nextChangeIndex,
   sheetChords,
   stepAtTime,
@@ -97,6 +99,25 @@ export function SongbookPlayer({
   const nextIdx = nextChangeIndex(steps, idx)
   const upNext = nextIdx >= 0 ? steps[nextIdx] : undefined
 
+  // Without a pasted sheet, the card follows the chords heard in the video.
+  // In a gap with no clear chord it shows the coming one, so it never blinks.
+  const heardLabel = steps.length
+    ? undefined
+    : (
+        chordAt(timedChords, position) ??
+        timedChords.find((chord) => chord.start > position) ??
+        timedChords.at(-1)
+      )?.label
+  const heardNext = heardLabel
+    ? timedChords.find(
+        (chord) => chord.start > position && chord.label !== heardLabel,
+      )
+    : undefined
+  const heardShape = useMemo(
+    () => (heardLabel ? resolveChord(heardLabel) : null),
+    [heardLabel],
+  )
+
   const advance = useCallback(
     (dir: 1 | -1) => setIdx((i) => (i + dir + steps.length) % steps.length),
     [steps.length],
@@ -153,15 +174,17 @@ export function SongbookPlayer({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!steps.length || timingLyrics) return
+      const target = e.target instanceof Element ? e.target : null
+      // Fields, selects and the seek slider use these keys themselves.
       if (
-        e.target instanceof Element &&
-        Boolean(
-          e.target.closest(
-            'input, textarea, button, audio, summary, select, [contenteditable="true"]',
-          ),
+        target?.closest(
+          'input, textarea, audio, select, [contenteditable="true"]',
         )
       )
         return
+      // A focused button answers Space on its own; arrows still step the
+      // sheet after a chord or the play button was clicked.
+      if (e.key === ' ' && target?.closest('button, summary')) return
       if (e.key === 'ArrowRight' || e.key === ' ') {
         e.preventDefault()
         if (recording) tapSync()
@@ -472,6 +495,19 @@ export function SongbookPlayer({
                   cancel
                 </button>
               </div>
+            </div>
+          )}
+
+          {heardShape && (
+            <div className="chord-card now">
+              <span className="role">Heard now</span>
+              <h2 className="chord-name">{heardShape.symbol}</h2>
+              <ChordDiagram shape={heardShape.shape} />
+              {heardNext && (
+                <p className="chord-notes">
+                  up next: <strong>{heardNext.label}</strong>
+                </p>
+              )}
             </div>
           )}
 

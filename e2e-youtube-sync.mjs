@@ -95,6 +95,11 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } })
 const errors = []
 page.on('pageerror', (error) => errors.push(error.message))
+/** The analysis panel has finished working (a result, an error, or canceled). */
+const analysisSettled = () =>
+  page
+    .locator('.recording-panel h3', { hasText: 'Chords from this video' })
+    .waitFor({ timeout: 20000 })
 await page.route('**/api/youtube-lyrics/*', (route) =>
   route.fulfill({
     json: { status: 'unavailable', cues: [], language: null, automatic: false },
@@ -243,7 +248,7 @@ try {
   await page.locator('.greenhouse-toggle').click()
   await page.getByRole('button', { name: 'Songbook', exact: true }).click()
   await page.locator('.songbook-open').click()
-  await page.locator('.recording-now').waitFor({ timeout: 20000 })
+  await analysisSettled()
   const preserved = await page.evaluate(
     () => JSON.parse(localStorage.getItem('fretbloom.songbook.v1'))[0],
   )
@@ -293,7 +298,7 @@ try {
   await page.getByRole('button', { name: 'Cancel analysis' }).click()
   await page.getByText('Analysis canceled.', { exact: true }).waitFor()
   await page.waitForTimeout(1800)
-  assert.equal(await page.locator('.recording-now').count(), 0)
+  assert.equal(await page.locator('.chord-timeline').count(), 0)
   assert.equal(await page.locator('.recording-notes').count(), 0)
   console.log('PASS canceled analysis cannot write a late result')
   await page.getByRole('button', { name: '← Songbook', exact: true }).click()
@@ -302,7 +307,7 @@ try {
     .getByLabel('YouTube link', { exact: true })
     .fill('https://youtu.be/dQw4w9WgXcQ')
   await page.getByRole('button', { name: 'Open YouTube song' }).click()
-  await page.locator('.recording-now').waitFor({ timeout: 20000 })
+  await analysisSettled()
   assert.equal(await page.locator('.sheet').count(), 0)
   assert.ok(await page.locator('.video-frame').isVisible())
   assert.deepEqual(errors, [])
@@ -331,7 +336,7 @@ C
 On a sunny day`,
   )
   await page.getByRole('button', { name: 'Open YouTube song' }).click()
-  await page.locator('.recording-now').waitFor({ timeout: 20000 })
+  await analysisSettled()
   assert.deepEqual(
     await page.$$eval('.chord-timeline ol button', (buttons) =>
       buttons.map(
@@ -384,7 +389,10 @@ On a sunny day`,
       `step ${step} lit at ${elapsed.toFixed(2)}s, synced at ${sheetTimes[step].toFixed(2)}s`,
     )
   }
-  assert.equal(await page.locator('.recording-now strong').innerText(), 'C')
+  assert.equal(
+    await page.locator('.chord-card.now .chord-name').innerText(),
+    'C',
+  )
   await page.screenshot({
     path: '/tmp/fretbloom-chordsheet-playalong.png',
     fullPage: true,

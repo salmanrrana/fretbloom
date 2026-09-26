@@ -6,6 +6,7 @@ import { stepMidiNotes, type ParsedStep } from '../data/tabParser'
 import type { SavedSong, VideoAnalysis } from '../data/songbook'
 import { chordAt, sounds, type TimedChord } from '../data/songSync'
 import type { VideoClock } from './useYouTubeClock'
+import { revealInPane } from './revealInPane'
 
 interface Props {
   videoId: string
@@ -157,6 +158,16 @@ export function YouTubeAnalysisPanel(props: Props) {
     [result],
   )
   const seek = useCallback((time: number) => clock.seek(time), [clock])
+  // Keep the sounding chip in view inside the scrolling timeline.
+  const timeline = useRef<HTMLOListElement>(null)
+  const heardIndex =
+    heardChords?.findIndex((chord) => sounds(chord, position)) ?? -1
+  useEffect(() => {
+    const list = timeline.current
+    const chip = list?.children[heardIndex]
+    if (list && chip instanceof HTMLElement && clock.isPlaying())
+      revealInPane(list, chip)
+  }, [heardIndex, clock])
   // Single-note estimates only matter when nothing was recognized as a chord,
   // or when the sheet is a numbered tab of single notes.
   const showNotes =
@@ -219,7 +230,9 @@ export function YouTubeAnalysisPanel(props: Props) {
           Try analysis again
         </button>
       )}
-      {result && (
+      {/* The card below shows the synced sheet's chord, or the heard one when
+          there is no sheet; only an unsynced sheet needs this readout. */}
+      {result && steps.length > 0 && !syncSource && (
         <p className="recording-now">
           Now: <strong>{nowChord?.label ?? '—'}</strong>
         </p>
@@ -230,7 +243,7 @@ export function YouTubeAnalysisPanel(props: Props) {
           <>
             <p className="sync-status" aria-live="polite">
               <span className="sync-dot" aria-hidden="true" />
-              synced to video — press play and the chords follow
+              <span>synced to video — press play and the chords follow</span>
               {onSetTiming && (
                 <button className="sync-redo" onClick={onSetTiming}>
                   redo sync
@@ -257,11 +270,14 @@ export function YouTubeAnalysisPanel(props: Props) {
       {result && heardChords && (
         <>
           {heardChords.length ? (
-            <div className="chord-timeline">
-              <p className="recording-help">
-                {plural(heardChords.length, 'chord change')} heard · tap to seek
-              </p>
-              <ol>
+            // Folded by default: the chord card is the live view, this is
+            // the map for jumping around the song.
+            <details className="chord-timeline">
+              <summary className="recording-help">
+                {plural(heardChords.length, 'chord change')} heard in the
+                recording · tap to seek
+              </summary>
+              <ol ref={timeline}>
                 {heardChords.map((chord) => (
                   <HeardChord
                     key={chord.start}
@@ -271,7 +287,7 @@ export function YouTubeAnalysisPanel(props: Props) {
                   />
                 ))}
               </ol>
-            </div>
+            </details>
           ) : (
             <p className="recording-help">
               No clear chords were heard. A cleaner recording may work better.
@@ -299,10 +315,12 @@ export function YouTubeAnalysisPanel(props: Props) {
           )}
         </>
       )}
-      <p className="recording-help">
-        Works with public videos up to 10 minutes. Chord recognition is best
-        with a clear, well-mixed recording.
-      </p>
+      {!result && (
+        <p className="recording-help">
+          Works with public videos up to 10 minutes. Chord recognition is best
+          with a clear, well-mixed recording.
+        </p>
+      )}
     </section>
   )
 }

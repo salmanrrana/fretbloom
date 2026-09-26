@@ -119,7 +119,6 @@ export const runCommand: CommandRunner = (command, args, options) =>
     let stdout = ''
     let stderr = ''
     let settled = false
-    let forceKillTimer: NodeJS.Timeout | undefined
 
     const child = spawn(command, args, {
       cwd: options.cwd,
@@ -148,17 +147,16 @@ export const runCommand: CommandRunner = (command, args, options) =>
     const finish = (callback: () => void) => {
       if (settled) return
       settled = true
+      // After an abort the SIGKILL follow-up stays scheduled on purpose: it
+      // sweeps descendants (ffmpeg under yt-dlp) that ignored the SIGTERM.
       options.signal.removeEventListener('abort', abort)
-      if (forceKillTimer && !options.signal.aborted)
-        clearTimeout(forceKillTimer)
       callback()
     }
 
     const abort = () => {
       if (child.exitCode !== null || child.signalCode !== null) return
       killProcessTree('SIGTERM')
-      forceKillTimer = setTimeout(() => killProcessTree('SIGKILL'), 2_000)
-      forceKillTimer.unref()
+      setTimeout(() => killProcessTree('SIGKILL'), 2_000).unref()
     }
 
     if (options.signal.aborted) abort()
@@ -510,6 +508,10 @@ export function createYouTubeMiddleware(
       return
     }
     recentRequests.push(currentTime)
+    // Forget addresses whose window has passed so the map stays small.
+    for (const [address, times] of requestsByAddress)
+      if (currentTime - times[times.length - 1] >= rateLimitWindowMs)
+        requestsByAddress.delete(address)
     requestsByAddress.set(clientAddress, recentRequests)
 
     if (activeRequests >= maxConcurrent) {

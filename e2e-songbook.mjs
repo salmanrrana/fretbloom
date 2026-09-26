@@ -4,7 +4,10 @@ import { chromium } from 'playwright'
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:5199'
 let failures = 0
-const check = (ok, label) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${label}`); if (!ok) failures++ }
+const check = (ok, label) => {
+  console.log(`${ok ? 'PASS' : 'FAIL'} ${label}`)
+  if (!ok) failures++
+}
 
 const browser = await chromium.launch({
   args: [
@@ -17,6 +20,17 @@ const ctx = await browser.newContext({ viewport: { width: 1280, height: 950 } })
 const page = await ctx.newPage()
 const errors = []
 page.on('pageerror', (e) => errors.push(e.message))
+
+// No automatic analysis here: this suite covers the manual tap-through, as on
+// a host without the YouTube backend. e2e-youtube-sync.mjs covers analysis.
+await ctx.route('**/api/youtube-audio/*', (route) =>
+  route.fulfill({
+    status: 503,
+    json: {
+      error: { code: 'UNAVAILABLE', message: 'Analysis is off in this test.' },
+    },
+  }),
+)
 
 // Serve a stub YouTube player from the real embed origin so the app's
 // postMessage handshake (listening → infoDelivery, commands) runs for real.
@@ -45,10 +59,18 @@ await ctx.route('https://www.youtube-nocookie.com/embed/**', (route) =>
 
 await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.locator('.greenhouse-toggle').click()
-check((await page.locator('.experiments-row .target-chip').count()) === 2, 'greenhouse holds two experiments')
+check(
+  (await page.locator('.experiments-row .target-chip').count()) === 2,
+  'greenhouse holds two experiments',
+)
 
-await page.locator('.experiments-row .target-chip', { hasText: 'Songbook' }).click()
-check(await page.locator('.songbook-paste').isVisible(), 'editor opens when songbook is empty')
+await page
+  .locator('.experiments-row .target-chip', { hasText: 'Songbook' })
+  .click()
+check(
+  await page.locator('.songbook-paste').isVisible(),
+  'editor opens when songbook is empty',
+)
 
 // Paste a real-world-shaped tab
 const TAB = `[Intro]
@@ -62,193 +84,418 @@ With a gun in my hand
 C          F#m        G
 Staring at the sea, staring at the sand`
 
-await page.locator('.songbook-input').first().fill('Killing An Arab (test)')
-await page.locator('.songbook-input').nth(1).fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+await page.getByLabel('Song title').fill('Killing An Arab (test)')
+await page
+  .getByLabel('YouTube link', { exact: true })
+  .fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
 await page.locator('.songbook-paste').fill(TAB)
 const preview = await page.locator('.songbook-preview').innerText()
-check(/Found/.test(preview) && /chords/.test(preview), `live preview shows count: "${preview.slice(0, 60)}..."`)
+check(
+  /Found/.test(preview) && /chords/.test(preview),
+  `live preview shows count: "${preview.slice(0, 60)}..."`,
+)
 check(/F#m/.test(preview), 'preview includes barre chord F#m')
 
-await page.getByRole('button', { name: 'Save song' }).click()
+await page.getByRole('button', { name: 'Open YouTube song' }).click()
 
 // --- full sheet view ---
-check(await page.locator('.sheet').isVisible(), 'saving opens the full-sheet player')
+check(
+  await page.locator('.sheet').isVisible(),
+  'saving opens the full-sheet player',
+)
 const sheetText = await page.locator('.sheet').innerText()
 check(/Standing on a beach/.test(sheetText), 'lyrics visible in the sheet')
-check(/Staring at the sea/.test(sheetText), 'whole tab rendered (last lyric line present)')
-check((await page.locator('.sheet-line.section').count()) === 2, 'section headers rendered')
-check((await page.locator('.sheet-chord').count()) === 10, 'every chord occurrence is a chip (10 incl. repeats)')
+check(
+  /Staring at the sea/.test(sheetText),
+  'whole tab rendered (last lyric line present)',
+)
+check(
+  (await page.locator('.sheet-line.section').count()) === 2,
+  'section headers rendered',
+)
+check(
+  (await page.locator('.sheet-chord').count()) === 10,
+  'every chord occurrence is a chip (10 incl. repeats)',
+)
 
 // First chord lit in the sheet and mirrored in the sidebar card
-check((await page.locator('.sheet-chord.now').innerText()) === 'G', 'first chord G lit on the sheet')
-check((await page.locator('.chord-card.now .chord-name').innerText()) === 'G', 'sidebar card shows G')
-check((await page.locator('.video-frame iframe').count()) === 1, 'youtube iframe embedded')
+check(
+  (await page.locator('.sheet-chord.now').innerText()) === 'G',
+  'first chord G lit on the sheet',
+)
+check(
+  (await page.locator('.chord-card.now .chord-name').innerText()) === 'G',
+  'sidebar card shows G',
+)
+check(
+  (await page.locator('.video-frame iframe').count()) === 1,
+  'youtube iframe embedded',
+)
 const src = await page.locator('.video-frame iframe').getAttribute('src')
-check(src.includes('youtube-nocookie.com/embed/dQw4w9WgXcQ'), 'privacy-enhanced embed URL')
-check(/Intro/i.test(await page.locator('.chord-card.now .role').innerText()), 'section label shown')
+check(
+  src.includes('youtube-nocookie.com/embed/dQw4w9WgXcQ'),
+  'privacy-enhanced embed URL',
+)
+check(
+  /Intro/i.test(await page.locator('.chord-card.now .role').innerText()),
+  'section label shown',
+)
 
 // Advance via button
 await page.getByRole('button', { name: 'next →' }).click()
-check((await page.locator('.chord-card.now .chord-name').innerText()) === 'D', 'next button advances G -> D')
-check((await page.locator('.sheet-chord.now').innerText()) === 'D', 'sheet highlight follows to D')
+check(
+  (await page.locator('.chord-card.now .chord-name').innerText()) === 'D',
+  'next button advances G -> D',
+)
+check(
+  (await page.locator('.sheet-chord.now').innerText()) === 'D',
+  'sheet highlight follows to D',
+)
 
 // Advance via keyboard
 await page.keyboard.press('ArrowRight')
-check((await page.locator('.chord-card.now .chord-name').innerText()) === 'Am', 'ArrowRight advances D -> Am')
+check(
+  (await page.locator('.chord-card.now .chord-name').innerText()) === 'Am',
+  'ArrowRight advances D -> Am',
+)
 await page.keyboard.press('ArrowLeft')
-check((await page.locator('.chord-card.now .chord-name').innerText()) === 'D', 'ArrowLeft goes back')
+check(
+  (await page.locator('.chord-card.now .chord-name').innerText()) === 'D',
+  'ArrowLeft goes back',
+)
 
 // Jump via the sheet to F#m — a generated barre shape
 await page.locator('.sheet-chord', { hasText: /^F#m$/ }).click()
-check((await page.locator('.chord-card.now .chord-name').innerText()) === 'F#m', 'sheet tap jumps to F#m')
-check(await page.locator('.chord-card.now .diagram').isVisible(), 'barre chord renders a diagram')
+check(
+  (await page.locator('.chord-card.now .chord-name').innerText()) === 'F#m',
+  'sheet tap jumps to F#m',
+)
+check(
+  await page.locator('.chord-card.now .diagram').isVisible(),
+  'barre chord renders a diagram',
+)
 const tabText = await page.locator('.chord-card.now .tab-block').innerText()
-check(/2/.test(tabText) && /4/.test(tabText), `F#m tab shows barre frets (${tabText.replace(/\n/g, ' ')})`)
+check(
+  /2/.test(tabText) && /4/.test(tabText),
+  `F#m tab shows barre frets (${tabText.replace(/\n/g, ' ')})`,
+)
 
 // Mic follow mode starts listening
 await page.getByRole('button', { name: 'Listen to me play' }).click()
 await page.waitForTimeout(500)
 const status = await page.locator('.songbook-listen-status').innerText()
-check(/Strum/.test(status), `mic follow live, status = "${status.slice(0, 50)}"`)
-check(await page.locator('.match-meter').isVisible(), 'match meter visible while listening')
+check(
+  /Play F#m/.test(status),
+  `mic follow live, status = "${status.slice(0, 50)}"`,
+)
+check(
+  await page.locator('.match-meter').isVisible(),
+  'match meter visible while listening',
+)
 await page.getByRole('button', { name: 'Stop listening' }).click()
 
 // --- video sync: tap-through recording ---
-check(await page.locator('.sync-btn').isVisible(), 'sync button offered for video songs')
+check(
+  await page.locator('.sync-btn').isVisible(),
+  'sync button offered for video songs',
+)
 await page.locator('.sync-btn').click()
 await page.waitForTimeout(600) // handshake + playback start
-check(await page.locator('.sync-recording').isVisible(), 'recording panel appears')
-check((await page.locator('.sheet-chord.now').innerText()) === 'G', 'recording starts at first chord')
+check(
+  await page.locator('.sync-recording').isVisible(),
+  'recording panel appears',
+)
+check(
+  (await page.locator('.sheet-chord.now').innerText()) === 'G',
+  'recording starts at first chord',
+)
 
 // Tap through all 10 steps (stub video advances 2.5s per wall-second)
 for (let i = 0; i < 10; i++) {
   await page.locator('.sync-recording .play-btn').click()
   await page.waitForTimeout(120)
 }
-check((await page.locator('.sync-recording').count()) === 0, 'recording completes after last tap')
-check(/synced to video/.test(await page.locator('.sync-status').innerText()), 'sync badge shown')
+check(
+  (await page.locator('.sync-recording').count()) === 0,
+  'recording completes after last tap',
+)
+check(
+  /synced to video/.test(await page.locator('.sync-status').innerText()),
+  'sync badge shown',
+)
 
 // --- video follow: play the video, highlights track its clock ---
 await page.evaluate(() => {
-  document.querySelector('.video-frame iframe').contentWindow.postMessage(
-    JSON.stringify({ event: 'command', func: 'seekTo', args: [0, true] }), '*')
-  document.querySelector('.video-frame iframe').contentWindow.postMessage(
-    JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*')
+  document
+    .querySelector('.video-frame iframe')
+    .contentWindow.postMessage(
+      JSON.stringify({ event: 'command', func: 'seekTo', args: [0, true] }),
+      '*',
+    )
+  document
+    .querySelector('.video-frame iframe')
+    .contentWindow.postMessage(
+      JSON.stringify({ event: 'command', func: 'playVideo', args: [] }),
+      '*',
+    )
 })
 await page.waitForTimeout(400)
 const early = await page.locator('.sheet-chord.now').innerText()
 await page.waitForTimeout(2500)
 const later = await page.locator('.sheet-chord.now').innerText()
-const laterIdx = await page.locator('.sheet-chord.now').getAttribute('data-step')
+const laterIdx = await page
+  .locator('.sheet-chord.now')
+  .getAttribute('data-step')
 check(early === 'G', `follow starts at G (got ${early})`)
-check(Number(laterIdx) > 0, `highlight advances with the video clock (${early} -> ${later}, step ${laterIdx})`)
+check(
+  Number(laterIdx) > 0,
+  `highlight advances with the video clock (${early} -> ${later}, step ${laterIdx})`,
+)
 
 // Sheet tap seeks the video
 await page.locator('.sheet-chord', { hasText: /^F#m$/ }).click()
 await page.waitForTimeout(300)
-const seeked = await page.evaluate(() => new Promise((resolve) => {
-  const onMsg = (e) => {
-    try {
-      const d = JSON.parse(e.data)
-      if (d.event === 'infoDelivery') { window.removeEventListener('message', onMsg); resolve(d.info.currentTime) }
-    } catch {}
-  }
-  window.addEventListener('message', onMsg)
-}))
-check(typeof seeked === 'number' && seeked > 0, `sheet tap seeks the video (t=${Number(seeked).toFixed(1)}s)`)
+const seeked = await page.evaluate(
+  () =>
+    new Promise((resolve) => {
+      const onMsg = (e) => {
+        try {
+          const d = JSON.parse(e.data)
+          if (d.event === 'infoDelivery') {
+            window.removeEventListener('message', onMsg)
+            resolve(d.info.currentTime)
+          }
+        } catch {}
+      }
+      window.addEventListener('message', onMsg)
+    }),
+)
+check(
+  typeof seeked === 'number' && seeked > 0,
+  `sheet tap seeks the video (t=${Number(seeked).toFixed(1)}s)`,
+)
 
 // Persistence across reload
 await page.reload({ waitUntil: 'networkidle' })
 await page.locator('.greenhouse-toggle').click()
-await page.locator('.experiments-row .target-chip', { hasText: 'Songbook' }).click()
-check(await page.locator('.songbook-open').isVisible(), 'saved song listed after reload')
-check(/video linked/.test(await page.locator('.songbook-meta').innerText()), 'meta shows video linked')
+await page
+  .locator('.experiments-row .target-chip', { hasText: 'Songbook' })
+  .click()
+check(
+  await page.locator('.songbook-open').isVisible(),
+  'saved song listed after reload',
+)
+check(
+  /video linked/.test(await page.locator('.songbook-meta').innerText()),
+  'meta shows video linked',
+)
 await page.locator('.songbook-open').click()
-check((await page.locator('.sheet-chord.now').innerText()) === 'G', 'reopened song starts at first chord')
-check(/Standing on a beach/.test(await page.locator('.sheet').innerText()), 'sheet re-renders from stored rawTab')
-check(/synced to video/.test(await page.locator('.sync-status').innerText()), 'sync map persists across reload')
+check(
+  (await page.locator('.sheet-chord.now').innerText()) === 'G',
+  'reopened song starts at first chord',
+)
+check(
+  /Standing on a beach/.test(await page.locator('.sheet').innerText()),
+  'sheet re-renders from stored rawTab',
+)
+check(
+  /synced to video/.test(await page.locator('.sync-status').innerText()),
+  'sync map persists across reload',
+)
 
 // --- edit from the player: title only, the sync map must survive ---
 await page.locator('.player-edit').click()
-check(await page.locator('.songbook-paste').isVisible(), 'edit from the player opens the press bench')
-check(/Edit “Killing An Arab \(test\)”/.test(await page.locator('.press-title').innerText()), 'bench heading names the song')
-check((await page.locator('.songbook-input').first().inputValue()) === 'Killing An Arab (test)', 'title prefilled')
-check(/Standing on a beach/.test(await page.locator('.songbook-paste').inputValue()), 'tab prefilled')
-check(/dQw4w9WgXcQ/.test(await page.locator('.songbook-input').nth(1).inputValue()), 'video link prefilled')
-await page.locator('.songbook-input').first().fill('Killing An Arab (edited)')
+check(
+  await page.locator('.songbook-paste').isVisible(),
+  'edit from the player opens the press bench',
+)
+check(
+  /Edit “Killing An Arab \(test\)”/.test(
+    await page.locator('.press-title').innerText(),
+  ),
+  'bench heading names the song',
+)
+check(
+  (await page.getByLabel('Song title').inputValue()) ===
+    'Killing An Arab (test)',
+  'title prefilled',
+)
+check(
+  /Standing on a beach/.test(
+    await page.locator('.songbook-paste').inputValue(),
+  ),
+  'tab prefilled',
+)
+check(
+  /dQw4w9WgXcQ/.test(
+    await page.getByLabel('YouTube link', { exact: true }).inputValue(),
+  ),
+  'video link prefilled',
+)
+await page.getByLabel('Song title').fill('Killing An Arab (edited)')
 await page.getByRole('button', { name: 'Save changes' }).click()
-check((await page.locator('.player-title').innerText()) === 'Killing An Arab (edited)', 'save returns to the player with the new title')
-check(/synced to video/.test(await page.locator('.sync-status').innerText()), 'title-only edit keeps the sync map')
+check(
+  (await page.locator('.player-title').innerText()) ===
+    'Killing An Arab (edited)',
+  'save returns to the player with the new title',
+)
+check(
+  /synced to video/.test(await page.locator('.sync-status').innerText()),
+  'title-only edit keeps the sync map',
+)
 
 // Cancel from the player: change discarded, back on the player
 await page.locator('.player-edit').click()
-await page.locator('.songbook-input').first().fill('should be discarded')
+await page.getByLabel('Song title').fill('should be discarded')
 await page.getByRole('button', { name: 'Cancel' }).click()
-check((await page.locator('.player-title').innerText()) === 'Killing An Arab (edited)', 'cancel from the player discards the change and returns to the player')
+check(
+  (await page.locator('.player-title').innerText()) ===
+    'Killing An Arab (edited)',
+  'cancel from the player discards the change and returns to the player',
+)
 
 // Changing the video drops the sync map too — it was tapped against the old video
 await page.locator('.player-edit').click()
-await page.locator('.songbook-input').nth(1).fill('https://youtu.be/aaaaaaaaaaa')
+await page
+  .getByLabel('YouTube link', { exact: true })
+  .fill('https://youtu.be/aaaaaaaaaaa')
 await page.getByRole('button', { name: 'Save changes' }).click()
-check(await page.locator('.sync-btn').isVisible(), 'video change drops the sync map (sync offered again)')
-check((await page.locator('.video-frame iframe').getAttribute('src')).includes('embed/aaaaaaaaaaa'), 'player embeds the new video')
+check(
+  await page
+    .locator('.sync-btn')
+    .waitFor({ timeout: 5000 })
+    .then(
+      () => true,
+      () => false,
+    ),
+  'video change drops the sync map (sync offered again)',
+)
+check(
+  (await page.locator('.video-frame iframe').getAttribute('src')).includes(
+    'embed/aaaaaaaaaaa',
+  ),
+  'player embeds the new video',
+)
 
 // Edit control is hidden while a sync tap-through is recording
 await page.locator('.sync-btn').click()
 await page.waitForTimeout(600)
-check((await page.locator('.player-edit').count()) === 0, 'edit control hidden while recording a sync')
+check(
+  (await page.locator('.player-edit').count()) === 0,
+  'edit control hidden while recording a sync',
+)
 // Re-record the sync so the chord-change case below has a map to drop
 for (let i = 0; i < 10; i++) {
   await page.locator('.sync-recording .play-btn').click()
   await page.waitForTimeout(120)
 }
-check(/synced to video/.test(await page.locator('.sync-status').innerText()), 're-synced against the new video')
+check(
+  /synced to video/.test(await page.locator('.sync-status').innerText()),
+  're-synced against the new video',
+)
 
 // A second song so list order can be checked (new songs press to the top)
 await page.getByRole('button', { name: '← Songbook' }).click()
-check((await page.locator('.songbook-title').innerText()) === 'Killing An Arab (edited)', 'list shows the edited title')
+check(
+  (await page.locator('.songbook-title').innerText()) ===
+    'Killing An Arab (edited)',
+  'list shows the edited title',
+)
 await page.locator('.setlist-add').click()
-await page.locator('.songbook-input').first().fill('Second song')
+await page.getByLabel('Song title').fill('Second song')
 await page.locator('.songbook-paste').fill('[Verse]\nC  G  Am  F')
 await page.getByRole('button', { name: 'Save song' }).click()
 await page.getByRole('button', { name: '← Songbook' }).click()
-const ids = () => page.evaluate(() => JSON.parse(localStorage.getItem('fretbloom.songbook.v1')).map((s) => s.id))
+const ids = () =>
+  page.evaluate(() =>
+    JSON.parse(localStorage.getItem('fretbloom.songbook.v1')).map((s) => s.id),
+  )
 const idsBefore = await ids()
 check(idsBefore.length === 2, 'two songs in the setlist')
-check((await page.locator('.songbook-title').nth(1).innerText()) === 'Killing An Arab (edited)', 'edited song sits second in the list')
+check(
+  (await page.locator('.songbook-title').nth(1).innerText()) ===
+    'Killing An Arab (edited)',
+  'edited song sits second in the list',
+)
 
 // --- edit from the list row: change the chords, the sync map must be dropped ---
 await page.locator('.songbook-edit').nth(1).click()
-check((await page.locator('.songbook-input').first().inputValue()) === 'Killing An Arab (edited)', 'row edit prefills the right song')
+check(
+  (await page.getByLabel('Song title').inputValue()) ===
+    'Killing An Arab (edited)',
+  'row edit prefills the right song',
+)
 await page.locator('.songbook-paste').fill(`${TAB}\nEm`)
 await page.getByRole('button', { name: 'Save changes' }).click()
-check((await page.locator('.sheet-chord').count()) === 11, 'edited tab renders the added chord (11 chips)')
-check(await page.locator('.sync-btn').isVisible(), 'chord change drops the stale sync map (sync offered again)')
+check(
+  (await page.locator('.sheet-chord').count()) === 11,
+  'edited tab renders the added chord (11 chips)',
+)
+check(
+  await page
+    .locator('.sync-btn')
+    .waitFor({ timeout: 5000 })
+    .then(
+      () => true,
+      () => false,
+    ),
+  'chord change drops the stale sync map (sync offered again)',
+)
 await page.getByRole('button', { name: '← Songbook' }).click()
-check(JSON.stringify(await ids()) === JSON.stringify(idsBefore), 'edit keeps ids and list order')
+check(
+  JSON.stringify(await ids()) === JSON.stringify(idsBefore),
+  'edit keeps ids and list order',
+)
 
 // Cancel from the list: change discarded, back on the list
 await page.locator('.songbook-edit').nth(1).click()
-await page.locator('.songbook-input').first().fill('should be discarded')
+await page.getByLabel('Song title').fill('should be discarded')
 await page.getByRole('button', { name: 'Cancel' }).click()
-check(await page.locator('.songbook-list').isVisible(), 'cancel from the list returns to the list')
-check((await page.locator('.songbook-title').nth(1).innerText()) === 'Killing An Arab (edited)', 'cancelled edit is discarded')
+check(
+  await page.locator('.songbook-list').isVisible(),
+  'cancel from the list returns to the list',
+)
+check(
+  (await page.locator('.songbook-title').nth(1).innerText()) ===
+    'Killing An Arab (edited)',
+  'cancelled edit is discarded',
+)
 
 // Edits persist across reload
 await page.reload({ waitUntil: 'networkidle' })
 await page.locator('.greenhouse-toggle').click()
-await page.locator('.experiments-row .target-chip', { hasText: 'Songbook' }).click()
-check((await page.locator('.songbook-title').nth(1).innerText()) === 'Killing An Arab (edited)', 'edited title persists across reload')
+await page
+  .locator('.experiments-row .target-chip', { hasText: 'Songbook' })
+  .click()
+check(
+  (await page.locator('.songbook-title').nth(1).innerText()) ===
+    'Killing An Arab (edited)',
+  'edited title persists across reload',
+)
 const metaAfter = await page.locator('.songbook-meta').nth(1).innerText()
-check(/11 chords/.test(metaAfter), `edited tab persists across reload (${metaAfter})`)
+check(
+  /11 chords/.test(metaAfter),
+  `edited tab persists across reload (${metaAfter})`,
+)
 check(!/synced/.test(metaAfter), 'dropped sync map stays dropped after reload')
 
 // Delete flow
 await page.locator('.songbook-delete').nth(1).click()
-check((await page.locator('.songbook-open').count()) === 1, 'delete removes the song')
-check((await page.locator('.songbook-title').innerText()) === 'Second song', 'the other song is untouched')
+check(
+  (await page.locator('.songbook-open').count()) === 1,
+  'delete removes the song',
+)
+check(
+  (await page.locator('.songbook-title').innerText()) === 'Second song',
+  'the other song is untouched',
+)
 
-check(errors.length === 0, errors.length ? `page errors: ${errors.join('|')}` : 'no page errors')
+check(
+  errors.length === 0,
+  errors.length ? `page errors: ${errors.join('|')}` : 'no page errors',
+)
 await browser.close()
-console.log(failures === 0 ? '\nALL SONGBOOK CHECKS PASSED' : `\n${failures} FAILED`)
+console.log(
+  failures === 0 ? '\nALL SONGBOOK CHECKS PASSED' : `\n${failures} FAILED`,
+)
 process.exit(failures ? 1 : 0)

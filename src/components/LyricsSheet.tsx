@@ -231,7 +231,11 @@ export function LyricsSheet(props: Props) {
       <header className="lyrics-head">
         <h3>Lyrics & notes</h3>
         <button className="quiet-btn" onClick={edit}>
-          {lyrics ? 'Edit lyrics' : 'Paste lyrics'}
+          {lyrics
+            ? 'Edit lyrics'
+            : suggestedText
+              ? 'Use lyrics from your sheet'
+              : 'Paste lyrics'}
         </button>
       </header>
       {lyrics && !editing && (
@@ -305,10 +309,9 @@ export function LyricsSheet(props: Props) {
                 : 'Notes are estimates, grouped by line timing.'}
             </p>
           )}
-          {!lyrics && !loading && (
+          {!lyrics && !loading && !message && (
             <p className="recording-help">
-              The chords stay available below the video. Add lyrics to see both
-              together.
+              Add lyrics to see the chords under each line.
             </p>
           )}
           {lyrics && !lyrics.cues && !marking && (

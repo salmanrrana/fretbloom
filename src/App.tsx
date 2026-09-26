@@ -69,8 +69,9 @@ export default function App() {
         {mode === 'listen' && <ListenMode onGlow={onGlow} />}
 
         <p className="footnote">
-          Your microphone stays on this device. YouTube analysis uses our
-          server.
+          Your microphone stays on this device.
+          {mode === 'songbook' &&
+            ' YouTube audio is fetched through this site’s server.'}
           {mode === 'listen' &&
             ' Headphones help in listen mode — otherwise the app hears itself.'}
         </p>

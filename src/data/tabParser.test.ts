@@ -77,6 +77,18 @@ describe('numbered guitar tabs', () => {
     expect(parsed.warnings.join(' ')).toContain('annotations')
   })
 
+  test('plays chord lines set apart from a staff by a blank line', () => {
+    const parsed = parseTab(`Am F\nC G\n\n${staff('--0--3-----')}`)
+    expect(parsed.steps.map((step) => step.chord.symbol)).toEqual([
+      'Am',
+      'F',
+      'C',
+      'G',
+      'E4',
+      'G4',
+    ])
+  })
+
   test('rejects incomplete and nonstandard staff blocks with an explanation', () => {
     expect(parseTab('e|--0--|\nB|-----|').steps).toHaveLength(0)
     expect(parseTab('e|--0--|\nB|-----|').warnings.join(' ')).toContain(

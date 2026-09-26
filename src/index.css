@@ -1345,12 +1345,24 @@ textarea:focus-visible {
   align-items: start;
 }
 
+/* Sticks beside the sheet and scrolls on its own when taller than the
+   screen, so the chord card never pushes the lit sheet out of view. */
 .songbook-side {
   position: sticky;
   top: 18px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-height: calc(100dvh - 36px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 179, 148, 0.35) transparent;
+}
+
+/* Scroll the column rather than squash the player or the card. */
+.songbook-side > * {
+  flex-shrink: 0;
 }
 
 .sheet {
@@ -1486,6 +1498,12 @@ textarea:focus-visible {
   margin: 0;
 }
 
+/* The words stay beside the dot; only the redo button wraps. */
+.sync-status > span:not(.sync-dot) {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
 .sync-dot {
   width: 8px;
   height: 8px;
@@ -1582,6 +1600,8 @@ textarea:focus-visible {
   /* Phone: sheet first, then a compact sticky-free sidebar below. */
   .songbook-side {
     position: static;
+    max-height: none;
+    overflow: visible;
   }
   .sheet {
     max-height: 52vh;
@@ -2004,11 +2024,15 @@ textarea:focus-visible {
   margin-left: 4px;
 }
 /* Recognized chords as a compact, wrapping timeline of seek chips. */
-.chord-timeline {
-  display: grid;
-  gap: 8px;
+.chord-timeline summary {
+  cursor: pointer;
+}
+.chord-timeline[open] summary {
+  margin-bottom: 8px;
 }
 .chord-timeline ol {
+  /* relative: the sounding chip's offsetTop is measured against this list */
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -2098,6 +2122,8 @@ textarea:focus-visible {
 }
 .songbook-follow.video-only .songbook-side {
   position: static;
+  max-height: none;
+  overflow: visible;
 }
 .press-video-link {
   display: grid;

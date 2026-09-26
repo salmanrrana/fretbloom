@@ -528,6 +528,10 @@ export function createYouTubeLyricsMiddleware(
       return
     }
     recentRequests.push(currentTime)
+    // Forget addresses whose window has passed so the map stays small.
+    for (const [address, times] of requestsByAddress)
+      if (currentTime - times[times.length - 1] >= rateLimitWindowMs)
+        requestsByAddress.delete(address)
     requestsByAddress.set(clientAddress, recentRequests)
 
     if (activeRequests >= maxConcurrent) {

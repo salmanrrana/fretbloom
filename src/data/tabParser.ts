@@ -87,11 +87,11 @@ export function parseTab(text: string): ParsedTab {
   // chord-only verse still belongs to the playable sequence.
   const annotations = new Set<number>()
   for (const start of staffGroups.keys()) {
+    // A blank line ends the walk: chords set apart from the staff are played.
     for (let i = start - 1; i >= 0; i--) {
       const line = rawLines[i].trim()
-      if (!line) continue
-      if (!readStaffRow(rawLines[i]) && isChordLine(line)) annotations.add(i)
-      else break
+      if (!line || readStaffRow(rawLines[i]) || !isChordLine(line)) break
+      annotations.add(i)
     }
   }
   let annotationOnly = false

@@ -124,9 +124,15 @@ export function SongbookMode({ onGlow }: Props) {
     })
   }
 
-  // Unique chord symbols for the setlist run — the song's fingerprint.
+  // Unique chord symbols for the setlist run — the song's fingerprint. A song
+  // without a sheet uses the chords heard in its video.
   const chordRun = (s: SavedSong) => {
-    const uniq = [...new Set(s.steps.map((st) => st.chord.symbol))]
+    const symbols = s.steps.length
+      ? s.steps.map((st) => st.chord.symbol)
+      : (s.videoAnalysis?.chords ?? [])
+          .map((chord) => chord.label)
+          .filter((label) => label !== 'N')
+    const uniq = [...new Set(symbols)]
     return uniq.length > 8
       ? `${uniq.slice(0, 8).join(' · ')} …`
       : uniq.join(' · ')
@@ -137,6 +143,19 @@ export function SongbookMode({ onGlow }: Props) {
       month: 'short',
       day: 'numeric',
     })
+
+  /** "11 chords · video linked · synced · pressed Sep 25" under each title. */
+  const songMeta = (s: SavedSong) =>
+    [
+      s.steps.length
+        ? `${s.steps.length} ${s.steps.some((st) => st.kind === 'notes') ? 'notes' : 'chords'}`
+        : 'no sheet',
+      s.youtubeId && 'video linked',
+      s.syncTimes && 'synced',
+      `pressed ${pressedOn(s.savedAt)}`,
+    ]
+      .filter(Boolean)
+      .join(' · ')
 
   if (bench) {
     return (
@@ -149,7 +168,7 @@ export function SongbookMode({ onGlow }: Props) {
             <p className="press-sub">
               {editing
                 ? 'Fix the title, the tab, or the video link — the chords are re-read as you type. A recorded video sync stays as long as the chords still line up.'
-                : 'Paste a YouTube link and we’ll find its notes automatically. Add a chord sheet or six-string guitar tab to sync the highlights to the video.'}
+                : 'Paste a YouTube link and we’ll hear its chords. Add the song’s chord sheet (or a six-string tab) and it lights up in time with the video.'}
             </p>
           </header>
 
@@ -158,7 +177,7 @@ export function SongbookMode({ onGlow }: Props) {
             <input
               id="song-video-link"
               className="songbook-input press-input-video"
-              placeholder="YouTube link — finds notes and syncs your tab"
+              placeholder="https://www.youtube.com/watch?v=…"
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
               aria-label="YouTube link"
@@ -184,7 +203,11 @@ export function SongbookMode({ onGlow }: Props) {
             <div className="press-side">
               <input
                 className="songbook-input press-input-title"
-                placeholder="Song title"
+                placeholder={
+                  previewVideo
+                    ? 'Song title (or use the video’s)'
+                    : 'Song title'
+                }
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 aria-label="Song title"
@@ -247,8 +270,8 @@ export function SongbookMode({ onGlow }: Props) {
                   </>
                 ) : (
                   <p className="press-empty-hint">
-                    A YouTube link is enough to find notes. Add a tab if you
-                    want to follow along.
+                    A YouTube link is enough to hear the chords. Paste the
+                    song’s chord sheet to follow it in time.
                   </p>
                 )}
               </div>
@@ -310,11 +333,7 @@ export function SongbookMode({ onGlow }: Props) {
             <button className="songbook-open" onClick={() => setOpenId(s.id)}>
               <span className="songbook-title">{s.title}</span>
               <span className="songbook-chords">{chordRun(s)}</span>
-              <span className="songbook-meta">
-                {s.steps.length} steps{s.youtubeId ? ' · video linked' : ''}
-                {s.syncTimes ? ' · synced' : ''} · pressed{' '}
-                {pressedOn(s.savedAt)}
-              </span>
+              <span className="songbook-meta">{songMeta(s)}</span>
             </button>
             <button
               className="songbook-edit"
