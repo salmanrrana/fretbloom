@@ -31,11 +31,11 @@ const TRANSPOSE_MARGIN = 0.01
  */
 const SILENT_FRAME_SCORE = -0.02
 /**
- * Extra cost per frame when some other triad explains the frame better than
- * the run's chord. Without it a run would happily bridge a short different
- * chord that the paste omits; with it, anything a chord's length long counts.
+ * Extra cost when another triad explains a frame better. A small mismatch
+ * should not earn positive score merely because the sheet chord also fits
+ * fairly well; otherwise a long, wrong passage can beat a shorter true one.
  */
-const REGRET_WEIGHT = 1
+const REGRET_WEIGHT = 3
 /**
  * A stretch of a chord run is "foreign" when a triad outside the run's chord
  * beats it by this margin for this long. Inside the sheet that is a chord
@@ -441,8 +441,16 @@ function result(
   reliable: boolean,
   reason: string,
   transpose = 0,
+  endTime: number | null = null,
 ): AlignmentResult {
-  return { times, confidence: clamp01(confidence), reliable, reason, transpose }
+  return {
+    times,
+    endTime,
+    confidence: clamp01(confidence),
+    reliable,
+    reason,
+    transpose,
+  }
 }
 
 /**
@@ -531,6 +539,12 @@ export function alignSong(
   }
 
   const { unit, audible } = unitChroma(working, audibleFloor(working))
+  let musicEnd = 0
+  for (let frame = working.length - 1; frame >= 0; frame--) {
+    if (!audible[frame]) continue
+    musicEnd = working[frame].time + hop
+    break
+  }
   const freeBest = freeBestPerFrame(unit, audible, working.length)
   const keyCount = keys.length
   const last = runs.length - 1
@@ -666,6 +680,15 @@ export function alignSong(
         ? [run]
         : [],
     )
+    // A single unclear pickup can be reported while the rest stays useful.
+    // Repeated chord runs held at the minimum with below-average support mean
+    // the path is fitting the sheet by compressing changes, not locating them.
+    const forcedWeak = weak.filter(
+      (run) =>
+        keys[runs[run].key].kind === 'chord' &&
+        means[run] < overall &&
+        ends[run] - path.starts[run] <= minFrames[run],
+    )
     // Runs at the end with no audible frames were parked after the music.
     let unheardTail = runs.length
     while (unheardTail > 0 && heard[unheardTail - 1] === 0) unheardTail--
@@ -682,6 +705,15 @@ export function alignSong(
         transpose,
       )
     }
+    if (forcedWeak.length > 1) {
+      return result(
+        times,
+        confidence,
+        false,
+        `Could not find clear timing for ${describe(forcedWeak[0])} and ${forcedWeak.length - 1} other chords. Check the sheet against this recording or set timing manually.`,
+        transpose,
+      )
+    }
     const weakSteps = weak.reduce((sum, run) => sum + runs[run].members, 0)
     if (weakSteps > weakAllowance) {
       let weakestRun = 0
@@ -693,7 +725,7 @@ export function alignSong(
         false,
         unheardTail < runs.length
           ? `${describe(unheardTail)} and the rest of the sheet fall after the music ends. The sheet has more chords than the recording plays.`
-          : `${describe(weakestRun)} and ${weakSteps - runs[weakestRun].members} more were not heard clearly enough. Check that the chords and their order match this version of the song.`,
+          : `${describe(weakestRun)} and ${weakSteps - runs[weakestRun].members} more were not heard clearly enough. Check that the chords and their order match this recording, or set timing manually.`,
         transpose,
       )
     }
@@ -711,11 +743,11 @@ export function alignSong(
         ? `${describe(run)} falls after the music ends.`
         : `${describe(run)} was not heard clearly; check it.`,
     )
-    if (trimmed)
+    if (lastEnd < musicEnd - hop)
       notes.unshift(
         `The sheet covers ${timestamp(times[0])}–${timestamp(lastEnd)} of the song.`,
       )
-    return result(times, confidence, true, notes.join(' '), transpose)
+    return result(times, confidence, true, notes.join(' '), transpose, lastEnd)
   }
 
   const transpose = chooseTranspose(working, unit, audible, keys)

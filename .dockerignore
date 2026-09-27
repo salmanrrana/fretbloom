@@ -6,3 +6,8 @@
 dist
 node_modules
 *.log
+**/.env*
+**/.npmrc
+**/.netrc
+**/*.pem
+**/*.key

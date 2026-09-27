@@ -356,6 +356,7 @@ describe('createYouTubeMiddleware', () => {
     const testServer = await startServer({
       tempRoot,
       rateLimitMax: 1,
+      trustRailwayProxy: false,
       ytDlpPath: 'fake-ytdlp',
       ffmpegPath: 'fake-ffmpeg',
       runCommand: successfulRunner(calls),
@@ -364,18 +365,56 @@ describe('createYouTubeMiddleware', () => {
     try {
       const firstResponse = await fetch(
         `${testServer.baseUrl}/api/youtube-audio/dQw4w9WgXcQ`,
+        { headers: { 'X-Real-IP': '198.51.100.1' } },
       )
       expect(firstResponse.status).toBe(200)
       await firstResponse.arrayBuffer()
 
       const limitedResponse = await fetch(
         `${testServer.baseUrl}/api/youtube-audio/abcdefghijk`,
+        { headers: { 'X-Real-IP': '198.51.100.2' } },
       )
       expect(limitedResponse.status).toBe(429)
       expect(limitedResponse.headers.get('retry-after')).toBe('60')
       expect(await limitedResponse.json()).toMatchObject({
         error: { code: 'RATE_LIMITED' },
       })
+    } finally {
+      await testServer.close()
+    }
+  })
+
+  it('gives Railway visitors separate limits behind one proxy', async () => {
+    const tempRoot = await createTempRoot()
+    const testServer = await startServer({
+      tempRoot,
+      rateLimitMax: 1,
+      trustRailwayProxy: true,
+      ytDlpPath: 'fake-ytdlp',
+      ffmpegPath: 'fake-ffmpeg',
+      runCommand: successfulRunner([]),
+    })
+    const importSong = (headers: Record<string, string>) =>
+      fetch(`${testServer.baseUrl}/api/youtube-audio/dQw4w9WgXcQ`, {
+        headers,
+      })
+
+    try {
+      expect((await importSong({ 'X-Real-IP': '198.51.100.1' })).status).toBe(
+        200,
+      )
+      expect((await importSong({ 'X-Real-IP': '198.51.100.2' })).status).toBe(
+        200,
+      )
+      expect((await importSong({ 'X-Real-IP': '198.51.100.1' })).status).toBe(
+        429,
+      )
+
+      // An invalid proxy address falls back to the peer's shared limit.
+      expect((await importSong({ 'X-Real-IP': 'not-an-ip' })).status).toBe(200)
+      expect(
+        (await importSong({ 'X-Real-IP': '198.51.100.3, 4' })).status,
+      ).toBe(429)
     } finally {
       await testServer.close()
     }

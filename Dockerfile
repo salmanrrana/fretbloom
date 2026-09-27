@@ -20,4 +20,6 @@ ENV NODE_ENV=production
 
 EXPOSE 4173
 
+USER node
+
 CMD ["node", "server/index.ts"]

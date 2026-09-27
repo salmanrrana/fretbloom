@@ -13,14 +13,16 @@ const cues = [
   { start: 2, end: 3, text: 'Morning light' },
   { start: 5, end: 7, text: 'Carry me home' },
 ]
+let servedCues = cues
 const saved = {
-  id: 'lyrics-test',
+  id: 'song-lyrics-test',
   title: 'Morning light',
   rawTab: '',
   steps: [],
   youtubeId: id,
   savedAt: Date.now(),
   videoAnalysis: {
+    version: 3,
     videoId: id,
     sequenceKey: '[]',
     duration: 10,
@@ -50,7 +52,7 @@ await page.route('**/api/youtube-captions/*', async (route) => {
     .fulfill({
       json: {
         status: available ? 'available' : 'unavailable',
-        cues: available ? cues : [],
+        cues: available ? servedCues : [],
         language: 'en',
         automatic: false,
       },
@@ -89,10 +91,16 @@ try {
       localStorage.setItem('fretbloom.songbook.v1', JSON.stringify([song])),
     saved,
   )
-  await page.locator('.greenhouse-toggle').click()
-  await page.getByRole('button', { name: 'Songbook', exact: true }).click()
+  await page.getByRole('link', { name: 'Songbook', exact: true }).click()
+  await page.waitForURL('**/songbook')
   await page.locator('.songbook-open').click()
   await page.locator('.lyric-row').first().waitFor()
+  assert.equal(
+    await page
+      .getByRole('button', { name: 'Use lyrics from your sheet', exact: true })
+      .count(),
+    0,
+  )
   assert.equal(await page.locator('.lyric-row').count(), 5)
   assert.equal(await page.locator('.lyric-notes button').count(), notes.length)
   assert.equal(
@@ -241,6 +249,104 @@ try {
   const changed = await readSong()
   assert.equal(changed.lyrics, undefined)
   assert.equal(changed.videoAnalysis, undefined)
+
+  // A held A crosses two lyric boundaries; the sheet's words remain available
+  // after imperfect automatic captions have been saved.
+  servedCues = [
+    { start: 2, end: 4, text: 'Paper bits' },
+    { start: 4, end: 7, text: 'Under a room' },
+    { start: 7, end: 10, text: 'Morning returns' },
+  ]
+  delayCaptions = false
+  const chordSong = {
+    ...saved,
+    id: 'song-lyrics-held-chord',
+    rawTab: '[A]Paper boats drift\n[A]Under the moon\n[D]Morning returns',
+    videoAnalysis: {
+      ...saved.videoAnalysis,
+      notes: [],
+      chords: [
+        { label: 'A', start: 0.5, end: 6, confidence: 0.9 },
+        { label: 'D', start: 6, end: 10, confidence: 0.9 },
+      ],
+    },
+  }
+  await page.evaluate(async (song) => {
+    const { parseTab, stepMidiNotes } = await import('/src/data/tabParser.ts')
+    const steps = parseTab(song.rawTab).steps
+    song.steps = steps
+    song.videoAnalysis.sequenceKey = JSON.stringify(
+      steps.map((step) => [step.kind ?? 'chord', stepMidiNotes(step)]),
+    )
+    localStorage.setItem('fretbloom.songbook.v1', JSON.stringify([song]))
+  }, chordSong)
+  await page.reload()
+  assert.equal(new URL(page.url()).pathname, '/songbook')
+  await page.locator('.songbook-open').click()
+  await page
+    .getByRole('button', { name: 'Lyrics & notes', exact: true })
+    .click()
+  await page.locator('.lyric-row').first().waitFor()
+  const chordVideo = page
+    .frames()
+    .find((frame) => frame.url().includes('youtube-nocookie'))
+  assert.ok(chordVideo)
+  await chordVideo.evaluate(() => window.setTime(5.4, true))
+  await page.waitForFunction(() =>
+    document
+      .querySelector('.lyric-row.active .lyric-words')
+      ?.textContent.includes('Under a room'),
+  )
+  await chordVideo.evaluate(() => window.setTime(5.4, false))
+  assert.equal(await page.locator('.lyric-notes button.sounding').count(), 1)
+  const activeHeld = page.locator(
+    '.lyric-row.active .lyric-notes button.sounding.continuation',
+  )
+  assert.equal(await activeHeld.count(), 1)
+  assert.match(await activeHeld.innerText(), /A.*held/)
+  await activeHeld.click()
+  await chordVideo.locator('body[data-seek="4"]').waitFor()
+  await chordVideo.evaluate(() => window.setTime(6.5, false))
+  await page.waitForFunction(() =>
+    document
+      .querySelector('.lyric-row.active .lyric-notes button.sounding')
+      ?.textContent.includes('D'),
+  )
+  assert.equal(await page.locator('.lyric-notes button.sounding').count(), 1)
+  console.log(
+    'PASS held chord has one current occurrence; continuation seeks to its line; new chord replaces it',
+  )
+
+  await page.getByRole('button', { name: 'Edit lyrics', exact: true }).click()
+  await page
+    .locator('#song-lyrics')
+    .fill('Paper ships\nUnder a room\nMorning returns')
+  await page.getByRole('button', { name: 'Save lyrics', exact: true }).click()
+  assert.equal((await readSong()).lyrics.source, 'pasted')
+  await page
+    .getByRole('button', { name: 'Use lyrics from your sheet', exact: true })
+    .click()
+  assert.equal(
+    await page.locator('#song-lyrics').inputValue(),
+    'Paper boats drift\nUnder the moon\nMorning returns',
+  )
+  assert.equal(
+    (await readSong()).lyrics.text,
+    'Paper ships\nUnder a room\nMorning returns',
+  )
+  await page.getByRole('button', { name: 'Save lyrics', exact: true }).click()
+  assert.equal(
+    (await readSong()).lyrics.text,
+    'Paper boats drift\nUnder the moon\nMorning returns',
+  )
+  assert.equal((await readSong()).lyrics.cues, null)
+  assert.equal((await readSong()).lyrics.source, 'pasted')
+  await page
+    .getByRole('button', { name: 'Time lyrics to song', exact: true })
+    .waitFor()
+  console.log(
+    'PASS sheet words can replace bad captions without borrowing their timestamps',
+  )
   assert.deepEqual(errors, [])
   console.log(
     'PASS changing the video clears its old lyrics and note analysis; no browser errors',

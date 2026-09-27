@@ -22,10 +22,10 @@ The setup script creates `.tools/youtube` and installs the pinned `yt-dlp[defaul
 
 ```sh
 npm run build
-npm start
+NODE_ENV=development npm start
 ```
 
-The standalone server listens on `0.0.0.0:4173` by default and serves both `dist/` and the API. Set `HOST` or `PORT` to change that. Optional tool overrides are `YTDLP_PATH` and `FFMPEG_PATH`.
+This local mode listens on `127.0.0.1:4173` by default and serves both `dist/` and the API. Set `HOST` or `PORT` to change that. Any start with `DATABASE_URL` requires the owner password, and an unconfigured `npm start` refuses to run. Optional tool overrides are `YTDLP_PATH` and `FFMPEG_PATH`.
 
 ## API contract
 
@@ -44,17 +44,27 @@ Errors are JSON:
 }
 ```
 
-The backend checks metadata before downloading, rejects live or longer-than-10-minute videos, caps source downloads at 50 MiB, and retries a failed direct audio download with a dynamically selected audio-only HLS format when the video offers one. It limits concurrent work to two requests, rate-limits each directly connected address, times out work, cancels subprocesses when a client disconnects, and removes every temporary directory. Error responses never include downloader output, filesystem paths, or credentials.
+The backend checks metadata before downloading, rejects live or longer-than-10-minute videos, caps source downloads at 50 MiB, and retries a failed direct audio download with a dynamically selected audio-only HLS format when the video offers one. It limits concurrent work to two requests per endpoint, rate-limits each visitor to ten requests per minute per endpoint, times out work, cancels subprocesses when a client disconnects, and removes every temporary directory. Error responses never include downloader output, filesystem paths, or credentials.
+
+On Railway, the limiter identifies visitors with the `X-Real-IP` header supplied by Railway's public edge. It accepts only a single valid IP address and falls back to the connection address when the header is missing or invalid. Outside Railway, it ignores proxy headers. Keep the service behind Railway's public edge when `RAILWAY_ENVIRONMENT_ID` is set. The limits are in process memory, so a second app replica would have separate counters; use a shared limiter or an edge rule before scaling beyond one replica.
 
 ## Container hosting
 
-`Dockerfile` is a complete single-container build for a small self-hosted service:
+`Dockerfile` is a complete single-container build. For a local, loopback-only
+trial without an owner account or database:
 
 ```sh
 docker build -t fretbloom .
-docker run --rm -p 4173:4173 fretbloom
+docker run --rm -p 127.0.0.1:4173:4173 -e NODE_ENV=development fretbloom
 ```
 
-The container includes Python, the pinned project-local yt-dlp environment, ffmpeg, the built frontend, and the Node server. This is a hosting option only; building the image does not deploy or modify the live Netlify site.
+The container defaults to production mode. A hosted instance needs both
+`FRETBLOOM_ACCESS_PASSWORD` (at least 20 characters) and `DATABASE_URL` for
+Postgres or it refuses to start. See [Railway deployment](railway-deployment.md)
+for the owner-only setup and private database connection. The loopback command
+above is only for local testing; its Songbook is not password protected and
+uses browser storage.
 
-The server needs outbound HTTPS access to YouTube. Installing or rebuilding also needs access to Python package hosting. Public YouTube extraction can break when YouTube changes its site; update the pinned yt-dlp version in `scripts/setup-youtube.mjs` after reviewing a newer release.
+The container includes Python, the pinned project-local yt-dlp environment, ffmpeg, the built frontend, and the Node server. It runs the app as a non-root user and writes temporary media under the system temp directory. Local `.env` files, npm credentials, and private key files are excluded from the Docker build context. This is a hosting option only; building the image does not deploy or modify the live Netlify site.
+
+The server needs outbound HTTPS access to YouTube. Installing or rebuilding also needs access to Python package hosting. Public YouTube extraction can break when YouTube changes its site or challenges a cloud IP. The current Railway deployment receives an HTTP 429 bot challenge for the audit song even with other supported yt-dlp client modes; changing the downloader version alone is not a verified fix. Update the pinned yt-dlp version in `scripts/setup-youtube.mjs` only after reviewing and testing a newer release.

@@ -20,11 +20,14 @@
     "test:lyrics": "node e2e-lyrics.mjs"
   },
   "dependencies": {
+    "pg": "^8.23.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-router": "^8.4.0"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
@@ -33,7 +36,7 @@
     "prettier": "^3.6.2",
     "typescript": "~6.0.2",
     "vite": "^8.2.0",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.11"
   },
   "engines": {
     "node": ">=24"

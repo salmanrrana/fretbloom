@@ -4,6 +4,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { clientAddress } from './clientAddress.ts'
 
 const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/
 const ROUTE_PREFIX = '/api/youtube-audio/'
@@ -45,6 +46,7 @@ export interface YouTubeMiddlewareOptions {
   tempRoot?: string
   runCommand?: CommandRunner
   now?: () => number
+  trustRailwayProxy?: boolean
 }
 
 export type YouTubeMiddleware = (
@@ -486,8 +488,8 @@ export function createYouTubeMiddleware(
     }
 
     const currentTime = now()
-    const clientAddress = request.socket.remoteAddress ?? 'unknown'
-    const recentRequests = (requestsByAddress.get(clientAddress) ?? []).filter(
+    const address = clientAddress(request, options.trustRailwayProxy)
+    const recentRequests = (requestsByAddress.get(address) ?? []).filter(
       (timestamp) => currentTime - timestamp < rateLimitWindowMs,
     )
     if (recentRequests.length >= rateLimitMax) {
@@ -512,7 +514,7 @@ export function createYouTubeMiddleware(
     for (const [address, times] of requestsByAddress)
       if (currentTime - times[times.length - 1] >= rateLimitWindowMs)
         requestsByAddress.delete(address)
-    requestsByAddress.set(clientAddress, recentRequests)
+    requestsByAddress.set(address, recentRequests)
 
     if (activeRequests >= maxConcurrent) {
       response.setHeader('Retry-After', '5')

@@ -17,12 +17,12 @@ audio through a small server, then estimate notes and timing in your browser.
 
 ## Songbook
 
-Open **Greenhouse → Songbook**, paste a YouTube link and the song's chord sheet
+Open **Songbook** in the navigation, paste a YouTube link and the song's chord sheet
 (chords written above the lyrics, the way tab sites print them) or a six-string
 numbered tab, then select **Open YouTube song**. The video opens and analysis
 starts on its own: the server fetches the audio, a browser worker extracts
 chroma and recognizes the chords, and the pasted sheet is aligned to the
-recording. No audio files or manual downloads are needed.
+recording when YouTube permits the server to fetch it.
 
 **Chord sheet** is the play-along view. It shows your paste exactly as written,
 sections included. Press play and the sounding chord lights up, the next chord
@@ -42,6 +42,10 @@ chords than the recording plays, or a sheet that does not match), and **Set
 timing manually** lets you tap each chord as it arrives while the video plays.
 A manual timing map survives later automatic analysis.
 
+Repeated chord placements with weak audio support do not receive automatic
+timing. The audio timeline estimates basic major/minor chords; it cannot verify
+sevenths or other added notes, and the pasted sheet keeps its full chord names.
+
 **Lyrics & notes** is the secondary view. It looks for video captions, then
 tries LRCLIB when exact track, artist, and duration metadata match, and places
 the chords sounding during each line beneath it (single-note estimates appear
@@ -53,13 +57,27 @@ stays untimed until you mark each line against the video; it is never
 assigned guessed timing. **Focus lyrics** enlarges the reading area and keeps
 playback controls above it; **Follow song** toggles automatic scrolling.
 
-The importer supports public videos up to 10 minutes. It uses yt-dlp with a
+A chord held across lyric lines is labeled **held**, with only the current
+line's occurrence highlighted. Tapping it seeks to that line, not back to the
+original strum. **Use lyrics from your sheet** restores the pasted words for
+review even after captions load; plain words still need manual timing.
+
+The importer supports public videos up to 10 minutes when YouTube permits
+server-side extraction. It uses yt-dlp with a
 streamed-audio fallback, converts to mono WAV on the server, and analyzes that
 exact video in a browser worker. Temporary server files are cleaned up after
-each request. Chords, notes, timing, and lyrics are saved in your browser;
+each request. In the Railway deployment, chords, notes, timing, and lyrics are
+saved in Postgres behind a single owner password. Local development without a
+database still saves songs in your browser;
 changing the video or the pasted chords invalidates the relevant saved results,
-and songs saved before chord recognition existed are analyzed once more (their
-old automatic timing is redone; manual timing is kept).
+and songs saved with older analysis rules are analyzed once more (their old
+automatic timing is redone; manual timing is kept).
+
+The current Railway deployment cannot extract the audit song from its cloud
+IP: YouTube returns an HTTP 429 bot challenge there, although the same song
+works locally. For now, use local development for YouTube audio import and
+analysis; hosted link imports are unreliable. [Deployment details](docs/railway-deployment.md)
+record the live check and Free-plan limits.
 
 Some YouTube uploads block embedded video (errors 101/150), and some never
 report anything at all. The player detects both (the silent case after a few
@@ -98,13 +116,19 @@ For the built app with its backend:
 
 ```bash
 npm run build
-npm start            # default port 4173; use PORT/HOST to configure
+NODE_ENV=development npm start # local browser-only Songbook on 127.0.0.1:4173
 ```
 
 `npm run preview` also includes the YouTube API. See
 [backend setup and hosting](docs/youtube-backend.md) for Docker and settings.
+See [Railway deployment](docs/railway-deployment.md) for the owner password,
+Postgres, and production setup.
+Any database-backed start requires the owner password; an unconfigured
+`npm start` refuses to run.
 The existing Netlify deployment is static: automatic YouTube analysis needs
 the accompanying server. Building `dist/` alone does not add a backend to it.
+The new private Songbook also requires `/api/session` and Postgres; it will
+stay locked on a static host. Deploy this build with its backend on Railway.
 No production deployment is performed by these commands.
 
 ## Verify

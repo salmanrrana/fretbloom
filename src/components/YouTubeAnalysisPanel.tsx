@@ -1,9 +1,17 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { analyzeYouTube } from '../audio/youtubeAnalysis'
+import {
+  analyzeYouTube,
+  type YouTubeAnalysisResult,
+} from '../audio/youtubeAnalysis'
 import { alignSong } from '../audio/songAlignment'
 import { midiToNameWithOctave } from '../audio/notes'
 import { stepMidiNotes, type ParsedStep } from '../data/tabParser'
-import type { SavedSong, VideoAnalysis } from '../data/songbook'
+import {
+  analysisSequenceKey,
+  VIDEO_ANALYSIS_VERSION,
+  type SavedSong,
+  type VideoAnalysis,
+} from '../data/songbook'
 import { chordAt, sounds, type TimedChord } from '../data/songSync'
 import type { VideoClock } from './useYouTubeClock'
 import { revealInPane } from './revealInPane'
@@ -17,6 +25,8 @@ interface Props {
   position: number
   /** What sounds when — the synced sheet if there is one, else what was heard. */
   chords: readonly TimedChord[]
+  /** The main card already shows heard chords while following the lyrics. */
+  showCurrent: boolean
   /** How the sheet is timed, or null while it is not. */
   syncSource: NonNullable<SavedSong['syncSource']> | null
   /** Starts the tap-through; absent while another timing task owns the clock. */
@@ -44,7 +54,7 @@ function plural(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? '' : 's'}`
 }
 
-/** A linked video is retrieved and analyzed automatically; no user audio files. */
+/** Analyze a linked video's audio and align it to the song sheet. */
 export function YouTubeAnalysisPanel(props: Props) {
   const {
     videoId,
@@ -54,21 +64,51 @@ export function YouTubeAnalysisPanel(props: Props) {
     position,
     chords,
     syncSource,
+    showCurrent,
     onSetTiming,
   } = props
   const latest = useRef(props)
   latest.current = props
-  const sequenceKey = JSON.stringify(
-    steps.map((step) => [step.kind ?? 'chord', stepMidiNotes(step)]),
-  )
+  const sequenceKey = analysisSequenceKey(steps)
   const [attempt, setAttempt] = useState(0)
   const [status, setStatus] = useState<Status>({ kind: 'fetching' })
   const [result, setResult] = useState<VideoAnalysis | null>(null)
   const request = useRef<AbortController | null>(null)
+  const complete = useCallback(
+    (analysis: YouTubeAnalysisResult['analysis'], title: string | null) => {
+      const targets = latest.current.steps.map((step) => ({
+        midis: stepMidiNotes(step),
+        kind: step.kind ?? 'chord',
+        label: step.chord.symbol,
+      }))
+      const alignment = alignSong(analysis, targets)
+      const next: VideoAnalysis = {
+        version: VIDEO_ANALYSIS_VERSION,
+        videoId,
+        sequenceKey,
+        duration: analysis.duration,
+        notes: analysis.notes,
+        chords: analysis.chords,
+        syncReason: targets.length ? alignment.reason : null,
+        times: alignment.reliable ? alignment.times : null,
+        endTime: alignment.reliable ? alignment.endTime : null,
+        transpose: targets.length ? alignment.transpose : 0,
+      }
+      setResult(next)
+      setStatus({ kind: 'ready' })
+      latest.current.onResult(
+        next,
+        alignment.reliable ? alignment.times : null,
+        title,
+      )
+    },
+    [videoId, sequenceKey],
+  )
 
   useEffect(() => {
     if (
       saved?.videoId === videoId &&
+      saved.version === VIDEO_ANALYSIS_VERSION &&
       saved.sequenceKey === sequenceKey &&
       (saved.times !== undefined || steps.length === 0) &&
       attempt === 0
@@ -76,7 +116,6 @@ export function YouTubeAnalysisPanel(props: Props) {
       setResult(saved)
       setStatus({ kind: 'ready' })
       latest.current.onBusy(false)
-      latest.current.onResult(saved, saved.times ?? null, null)
       return
     }
     const controller = new AbortController()
@@ -104,29 +143,7 @@ export function YouTubeAnalysisPanel(props: Props) {
       })
         .then(({ analysis, title }) => {
           if (controller.signal.aborted) return
-          const targets = latest.current.steps.map((step) => ({
-            midis: stepMidiNotes(step),
-            kind: step.kind ?? 'chord',
-            label: step.chord.symbol,
-          }))
-          const alignment = alignSong(analysis, targets)
-          const next: VideoAnalysis = {
-            videoId,
-            sequenceKey,
-            duration: analysis.duration,
-            notes: analysis.notes,
-            chords: analysis.chords,
-            syncReason: targets.length ? alignment.reason : null,
-            times: alignment.reliable ? alignment.times : null,
-            transpose: targets.length ? alignment.transpose : 0,
-          }
-          setResult(next)
-          setStatus({ kind: 'ready' })
-          latest.current.onResult(
-            next,
-            alignment.reliable ? alignment.times : null,
-            title,
-          )
+          complete(analysis, title)
         })
         .catch((error: unknown) => {
           if (controller.signal.aborted && !timedOut) return
@@ -148,9 +165,9 @@ export function YouTubeAnalysisPanel(props: Props) {
       window.clearTimeout(debounce)
       controller.abort()
     }
-    // A saved result is written by this effect. Changes to it must not restart a job.
+    // A newly analyzed result is written by this effect. Changes to it must not restart a job.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [videoId, sequenceKey, attempt])
+  }, [videoId, sequenceKey, attempt, complete])
 
   const busy = status.kind === 'fetching' || status.kind === 'analyzing'
   const heardChords = useMemo(
@@ -232,7 +249,7 @@ export function YouTubeAnalysisPanel(props: Props) {
       )}
       {/* The card below shows the synced sheet's chord, or the heard one when
           there is no sheet; only an unsynced sheet needs this readout. */}
-      {result && steps.length > 0 && !syncSource && (
+      {result && showCurrent && steps.length > 0 && !syncSource && (
         <p className="recording-now">
           Now: <strong>{nowChord?.label ?? '—'}</strong>
         </p>
@@ -269,6 +286,11 @@ export function YouTubeAnalysisPanel(props: Props) {
       {capoHint && <p className="recording-help">{capoHint}</p>}
       {result && heardChords && (
         <>
+          <p className="recording-help">
+            Audio estimates show basic major and minor chords. Seventh chords
+            such as C#7 may appear as C# here; your sheet keeps its full chord
+            names.
+          </p>
           {heardChords.length ? (
             // Folded by default: the chord card is the live view, this is
             // the map for jumping around the song.

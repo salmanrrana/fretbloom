@@ -17,6 +17,7 @@ import {
   chordAt,
   nextChangeIndex,
   sheetChords,
+  sounds,
   stepAtTime,
   validSyncTimes,
 } from '../data/songSync'
@@ -45,7 +46,7 @@ export function SongbookPlayer({
   // sections) is available — older saves only stored the chord steps.
   const parsed = useMemo(() => parseTab(song.rawTab), [song.rawTab])
   const steps = parsed.steps
-  const [idx, setIdx] = useState(0)
+  const [practiceIdx, setIdx] = useState(0)
   const [listening, setListening] = useState(false)
   const [micError, setMicError] = useState<string | null>(null)
   const [match, setMatch] = useState(0)
@@ -77,12 +78,71 @@ export function SongbookPlayer({
   const playback = useSongPlayback(song.youtubeId, analyzing)
   const clock = playback.clock
   const position = useClockPosition(clock)
+  const [videoEnded, setVideoEnded] = useState(false)
+  useEffect(() => {
+    setVideoEnded(false)
+    if (playback.useAudio) return
+    const onMessage = (event: MessageEvent<unknown>) => {
+      if (
+        event.origin !== 'https://www.youtube-nocookie.com' ||
+        event.source !== playback.iframeRef.current?.contentWindow
+      )
+        return
+      let data: unknown
+      try {
+        data =
+          typeof event.data === 'string' ? JSON.parse(event.data) : event.data
+      } catch {
+        return
+      }
+      if (
+        !data ||
+        typeof data !== 'object' ||
+        !('event' in data) ||
+        (data.event !== 'infoDelivery' && data.event !== 'initialDelivery') ||
+        !('info' in data) ||
+        !data.info ||
+        typeof data.info !== 'object' ||
+        !('playerState' in data.info) ||
+        typeof data.info.playerState !== 'number'
+      )
+        return
+      setVideoEnded(data.info.playerState === 0)
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [song.youtubeId, playback.useAudio, playback.iframeRef])
+  const audio = playback.audioRef.current
+  const audioDuration =
+    playback.useAudio && audio && Number.isFinite(audio.duration)
+      ? audio.duration
+      : undefined
+  const mediaEnded = playback.useAudio ? Boolean(audio?.ended) : videoEnded
   const [recording, setRecording] = useState(false)
   const [draft, setDraft] = useState<number[]>([])
   const syncTimes = validSyncTimes(song.syncTimes, steps.length)
     ? song.syncTimes
     : null
   const synced = syncTimes !== null
+  // Derive playback selection in this render. An effect that copied the clock
+  // into state left the previous chord on screen for a frame at every change.
+  const idx =
+    synced && !recording && !listening
+      ? stepAtTime(syncTimes, position)
+      : practiceIdx
+
+  // A trailing unrecognized span is evidence that the final mapped chord
+  // stopped before the recording did. Keep its shape ready without saying Now.
+  const trailingSilence = analysis?.chords.at(-1)
+  const lastStart = syncTimes?.at(-1) ?? 0
+  const sheetEnd =
+    song.syncSource === 'automatic' &&
+    analysis?.endTime != null &&
+    analysis.endTime > lastStart
+      ? analysis.endTime
+      : trailingSilence?.label === 'N' && trailingSilence.start > lastStart
+        ? trailingSilence.start
+        : (analysis?.duration ?? audioDuration ?? Number.POSITIVE_INFINITY)
 
   // What sounds when: the synced sheet if we have it, else what was heard.
   const timedChords = useMemo(
@@ -90,24 +150,62 @@ export function SongbookPlayer({
       !analysis
         ? []
         : syncTimes
-          ? sheetChords(steps, syncTimes, analysis.duration)
+          ? sheetChords(steps, syncTimes, sheetEnd)
           : analysis.chords.filter((chord) => chord.label !== 'N'),
-    [analysis, syncTimes, steps],
+    [analysis, syncTimes, steps, sheetEnd],
   )
 
   const now = steps[idx]
   const nextIdx = nextChangeIndex(steps, idx)
   const upNext = nextIdx >= 0 ? steps[nextIdx] : undefined
+  const selectedOnly = Boolean(
+    song.youtubeId && !syncTimes && !listening && !recording,
+  )
+  const currentStepSounds =
+    listening ||
+    !syncTimes ||
+    !now ||
+    (!mediaEnded &&
+      sounds(
+        {
+          start: syncTimes[idx],
+          end: syncTimes[idx + 1] ?? sheetEnd,
+        },
+        position,
+      ))
+  const stepStatus = selectedOnly
+    ? 'Selected chord'
+    : currentStepSounds
+      ? now?.section
+        ? `${now.section} · now`
+        : 'Now'
+      : position < (syncTimes?.[0] ?? 0)
+        ? 'Get ready'
+        : mediaEnded ||
+            (analysis && position >= analysis.duration - 0.002) ||
+            (audioDuration != null && position >= audioDuration - 0.002)
+          ? 'Finished'
+          : 'No chord now'
 
-  // Without a pasted sheet, the card follows the chords heard in the video.
-  // In a gap with no clear chord it shows the coming one, so it never blinks.
-  const heardLabel = steps.length
+  // Lyrics follow audio estimates when the pasted sheet has no timing yet.
+  // Keep a selected practice shape confined to the sheet view.
+  const followingAudio =
+    !steps.length ||
+    Boolean(analysis && !synced && sheetView === 'lyrics' && !recording)
+  const heardChord = followingAudio ? chordAt(timedChords, position) : undefined
+  const comingChord = !followingAudio
     ? undefined
-    : (
-        chordAt(timedChords, position) ??
-        timedChords.find((chord) => chord.start > position) ??
-        timedChords.at(-1)
-      )?.label
+    : timedChords.find((chord) => chord.start > position)
+  const heardLabel = !followingAudio
+    ? undefined
+    : (heardChord ?? comingChord ?? timedChords.at(-1))?.label
+  const heardStatus = heardChord
+    ? 'Heard now'
+    : analysis && position >= analysis.duration - 0.002
+      ? 'Finished'
+      : position < (timedChords[0]?.start ?? 0)
+        ? 'Get ready'
+        : 'No chord now'
   const heardNext = heardLabel
     ? timedChords.find(
         (chord) => chord.start > position && chord.label !== heardLabel,
@@ -173,7 +271,7 @@ export function SongbookPlayer({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!steps.length || timingLyrics) return
+      if (!steps.length || timingLyrics || followingAudio) return
       const target = e.target instanceof Element ? e.target : null
       // Fields, selects and the seek slider use these keys themselves.
       if (
@@ -206,14 +304,8 @@ export function SongbookPlayer({
     tapSync,
     cancelRecording,
     timingLyrics,
+    followingAudio,
   ])
-
-  // Video follow: a synced sheet tracks the shared clock while the video plays
-  // — the same map lets sheet taps seek the video.
-  const followVideo = synced && !recording && !listening
-  useEffect(() => {
-    if (followVideo && syncTimes) setIdx(stepAtTime(syncTimes, position))
-  }, [followVideo, syncTimes, position])
 
   // Keep the lit chord in view as the song moves along.
   useEffect(() => {
@@ -308,19 +400,25 @@ export function SongbookPlayer({
     [onGlow],
   )
 
+  const stopMic = () => {
+    micRequest.current++
+    engine.mic.stop()
+    setListening(false)
+    setMatch(0)
+    setHit(false)
+    onGlow(false)
+  }
+
   const toggleMic = async () => {
-    const requestId = ++micRequest.current
     if (listening) {
-      engine.mic.stop()
-      setListening(false)
-      setMatch(0)
-      setHit(false)
-      onGlow(false)
+      stopMic()
       return
     }
+    const requestId = ++micRequest.current
     try {
       setMicError(null)
       clock.pause()
+      setIdx(idx)
       await engine.mic.start()
       if (requestId !== micRequest.current) return
       setListening(true)
@@ -354,7 +452,7 @@ export function SongbookPlayer({
         <p className="songbook-hint">
           {recording
             ? 'space: mark the chord · esc: cancel'
-            : steps.length
+            : steps.length && !followingAudio
               ? '→ / space: next · ←: back · tap any chord'
               : 'Play the song · follow the lyrics and chords'}
         </p>
@@ -375,12 +473,32 @@ export function SongbookPlayer({
                 </button>
                 <button
                   aria-pressed={sheetView === 'lyrics'}
-                  onClick={() => setSheetView('lyrics')}
+                  onClick={() => {
+                    stopMic()
+                    setSheetView('lyrics')
+                  }}
                 >
                   Lyrics & notes
                 </button>
               </div>
             )}
+            {analysis &&
+              steps.length > 0 &&
+              !synced &&
+              !analyzing &&
+              !recording &&
+              !timingLyrics && (
+                <div className="sheet-timing-note" role="status">
+                  <p className="recording-help">
+                    {sheetView === 'lyrics'
+                      ? 'Following audio estimates. Your sheet still needs timing.'
+                      : 'Your sheet is not synced to this recording yet.'}
+                  </p>
+                  <button className="quiet-btn" onClick={startRecording}>
+                    Set sheet timing
+                  </button>
+                </div>
+              )}
             {steps.length > 0 && (
               <div
                 hidden={
@@ -393,6 +511,8 @@ export function SongbookPlayer({
                       key={li}
                       line={line}
                       idx={idx}
+                      current={currentStepSounds && !selectedOnly}
+                      selected={selectedOnly}
                       nextIdx={nextIdx}
                       onJump={jumpTo}
                     />
@@ -446,7 +566,7 @@ export function SongbookPlayer({
           )}
 
           {song.youtubeId && (
-            <div hidden={recording}>
+            <div className="songbook-analysis" hidden={recording}>
               <YouTubeAnalysisPanel
                 videoId={song.youtubeId}
                 steps={steps}
@@ -454,6 +574,7 @@ export function SongbookPlayer({
                 clock={clock}
                 position={position}
                 chords={timedChords}
+                showCurrent={!followingAudio}
                 syncSource={synced ? (song.syncSource ?? 'manual') : null}
                 onSetTiming={timingLyrics ? undefined : startRecording}
                 onBusy={setAnalyzing}
@@ -499,8 +620,8 @@ export function SongbookPlayer({
           )}
 
           {heardShape && (
-            <div className="chord-card now">
-              <span className="role">Heard now</span>
+            <div className={`chord-card${heardChord ? ' now' : ''}`}>
+              <span className="role">{heardStatus}</span>
               <h2 className="chord-name">{heardShape.symbol}</h2>
               <ChordDiagram shape={heardShape.shape} />
               {heardNext && (
@@ -511,11 +632,11 @@ export function SongbookPlayer({
             </div>
           )}
 
-          {now && (
-            <div className={`chord-card now${hit ? ' hit' : ''}`}>
-              <span className="role">
-                {now.section ? `${now.section} · now` : 'Now'}
-              </span>
+          {now && !followingAudio && (
+            <div
+              className={`chord-card${currentStepSounds && !selectedOnly ? ' now' : ''}${now.kind === 'notes' ? ' note-step' : ''}${hit ? ' hit' : ''}`}
+            >
+              <span className="role">{stepStatus}</span>
               <h2 className="chord-name">{now.chord.symbol}</h2>
               {now.chord.approx && (
                 <p className="songbook-warn">closest playable shape</p>
@@ -541,7 +662,7 @@ export function SongbookPlayer({
             </div>
           )}
 
-          {now && !recording && !timingLyrics && (
+          {now && !followingAudio && !recording && !timingLyrics && (
             <>
               <div className="songbook-nav">
                 <button
@@ -611,11 +732,15 @@ export function SongbookPlayer({
 const SheetLineView = memo(function SheetLineView({
   line,
   idx,
+  current,
+  selected,
   nextIdx,
   onJump,
 }: {
   line: SheetLine
   idx: number
+  current: boolean
+  selected: boolean
   nextIdx: number
   onJump: (i: number) => void
 }) {
@@ -628,10 +753,12 @@ const SheetLineView = memo(function SheetLineView({
           <button
             key={si}
             data-step={seg.step}
-            className={`sheet-chord${seg.step === idx ? ' now' : ''}${seg.step === nextIdx ? ' next' : ''}`}
+            className={`sheet-chord${seg.step === idx && current ? ' now' : ''}${seg.step === idx && selected ? ' selected' : ''}${seg.step === nextIdx ? ' next' : ''}`}
             onClick={() => onJump(seg.step)}
             aria-label={`Jump to ${seg.text}`}
-            aria-current={seg.step === idx ? 'step' : undefined}
+            aria-current={
+              seg.step === idx && (current || selected) ? 'step' : undefined
+            }
           >
             {seg.text}
           </button>

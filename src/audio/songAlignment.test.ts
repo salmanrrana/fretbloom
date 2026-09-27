@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { gunzipSync } from 'node:zlib'
 import { describe, expect, test } from 'vitest'
 import {
   CCR_RAIN_RUNS,
@@ -428,6 +430,58 @@ describe('alignSong', () => {
     ])
     expect(manyExtra.reliable).toBe(false)
     expect(manyExtra.reason).toMatch(/fall after the music ends/)
+  })
+
+  test('declines exact sync for repeated unsupported pickups in a real import', () => {
+    // Quantized chroma/rms/MIDI frames from a 238 s public recording. The
+    // fixture contains no audio or lyrics; the targets are chord symbols only.
+    const bytes = gunzipSync(
+      readFileSync(
+        new URL('./fixtures/time-forgot-features.bin.gz', import.meta.url),
+      ),
+    )
+    const hopSeconds = 1024 / 12_000
+    const frames: SongFrame[] = Array.from(
+      { length: bytes.length / 14 },
+      (_, index) => ({
+        time: (index + 2) * hopSeconds,
+        chroma: Array.from(
+          { length: 12 },
+          (_, pc) => (bytes[index * 14 + pc] * 0.5) / 255,
+        ),
+        rms: (bytes[index * 14 + 12] * 0.3) / 255,
+        midi: bytes[index * 14 + 13] || null,
+      }),
+    )
+    const targets = JSON.parse(
+      readFileSync(
+        new URL('./fixtures/time-forgot-targets.json', import.meta.url),
+        'utf8',
+      ),
+    ) as SyncTarget[]
+    const aligned = alignSong(
+      { duration: 238.250667, hopSeconds, frames, notes: [], chords: [] },
+      targets,
+    )
+
+    expect(aligned.reliable).toBe(false)
+    expect(aligned.reason).toMatch(/Chord 21 \(D\).*2 other.*timing manually/i)
+    expect(aligned.times[21] - aligned.times[20]).toBeLessThan(0.3)
+    expect(aligned.times[49] - aligned.times[48]).toBeLessThan(0.3)
+    expect(aligned.times[77] - aligned.times[76]).toBeLessThan(0.3)
+
+    // Pasting only the intro must use its early occurrence and end before the
+    // next section, instead of claiming a long, misleading match near 3:20.
+    const intro = alignSong(
+      { duration: 238.250667, hopSeconds, frames, notes: [], chords: [] },
+      targets.slice(0, 8),
+    )
+    expect(intro.reliable).toBe(true)
+    expect(intro.times[0]).toBeLessThan(2)
+    expect(intro.times[7]).toBeCloseTo(12.8, 1)
+    expect(intro.endTime).toBeGreaterThan(14)
+    expect(intro.endTime).toBeLessThan(20)
+    expect(intro.reason).toMatch(/sheet covers 0:00–0:1[4-9]/i)
   })
 })
 

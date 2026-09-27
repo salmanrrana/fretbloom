@@ -47,9 +47,11 @@ test('a synced sheet becomes timed chords that end where the next begins', () =>
     { label: 'C', start: 3, end: 5 },
     { label: 'G', start: 5, end: 8 },
   ])
-  // Before the first chord starts, "now" is the first chord: get ready.
-  expect(chordAt(chords, 0)?.start).toBe(1)
+  // The next shape is available to prepare, but nothing is sounding yet.
+  expect(chordAt(chords, 0)).toBeUndefined()
   expect(chordAt(chords, 3)?.label).toBe('C')
+  expect(stepAtTime([1, 3, 5], 4.9999997)).toBe(2)
+  expect(chordAt(chords, 4.9999997)?.label).toBe('G')
   expect(chordAt(chords, 7.9)?.label).toBe('G')
   expect(chordAt(chords, 8)).toBeUndefined()
 })

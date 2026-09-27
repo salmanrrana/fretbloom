@@ -10,6 +10,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createYouTubeLyricsMiddleware } from './lyrics.ts'
 import { createYouTubeCaptionsMiddleware } from './captions.ts'
 import { createYouTubeMiddleware } from './youtube.ts'
+import { createOwnerAccess } from './ownerAccess.ts'
+import { serveSongApi } from './songApi.ts'
+import { createSongStore, type SongStore } from './songStore.ts'
 
 const DIST_DIRECTORY = resolve(
   fileURLToPath(new URL('../dist/', import.meta.url)),
@@ -128,18 +131,97 @@ async function serveFrontend(
   }
 }
 
-export function createFretBloomServer(distDirectory = DIST_DIRECTORY) {
+interface ServerOptions {
+  accessPassword?: string
+  songStore?: SongStore
+}
+
+export function createFretBloomServer(
+  distDirectory = DIST_DIRECTORY,
+  options: ServerOptions = {},
+) {
+  if (
+    options.songStore &&
+    (!options.accessPassword || options.accessPassword.length < 20)
+  ) {
+    throw new Error('Database-backed Songbook requires the owner password')
+  }
   const youtube = createYouTubeMiddleware()
   const captions = createYouTubeCaptionsMiddleware()
   const lyrics = createYouTubeLyricsMiddleware()
+  const ownerAccess = options.accessPassword
+    ? createOwnerAccess(options.accessPassword)
+    : null
   return createServer((request, response) => {
-    youtube(request, response, () => {
-      captions(request, response, () => {
-        lyrics(request, response, () => {
-          void serveFrontend(request, response, distDirectory)
+    // YouTube embeds require the site's origin as a referrer to play.
+    response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+    response.setHeader('X-Frame-Options', 'DENY')
+    response.setHeader('X-Content-Type-Options', 'nosniff')
+    response.setHeader(
+      'Permissions-Policy',
+      'camera=(), geolocation=(), microphone=(self)',
+    )
+    response.setHeader('Content-Security-Policy', "frame-ancestors 'none'")
+    if (request.headers['x-forwarded-proto'] === 'https') {
+      response.setHeader(
+        'Strict-Transport-Security',
+        'max-age=31536000; includeSubDomains',
+      )
+    }
+
+    let pathname: string
+    try {
+      pathname = new URL(request.url ?? '/', 'http://localhost').pathname
+    } catch {
+      writeText(response, 400, 'Invalid request URL')
+      return
+    }
+
+    if (pathname === '/health' && request.method === 'GET') {
+      writeText(response, 200, 'ok')
+      return
+    }
+    if (
+      pathname.startsWith('/api/') &&
+      request.headers['sec-fetch-site'] === 'cross-site'
+    ) {
+      writeText(response, 403, 'Cross-site API requests are not allowed')
+      return
+    }
+    const protectedRoute =
+      pathname.startsWith('/api/') ||
+      pathname === '/songbook' ||
+      pathname.startsWith('/songbook/')
+    if (protectedRoute && ownerAccess && !ownerAccess(request, response)) return
+    if (pathname === '/api/session') {
+      if (request.method !== 'GET') {
+        response.setHeader('Allow', 'GET')
+        writeText(response, 405, 'Method not allowed')
+        return
+      }
+      response.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+      })
+      response.end(
+        JSON.stringify({ owner: ownerAccess ? 'salmanrrana' : 'local' }),
+      )
+      return
+    }
+    void (async () => {
+      if (
+        options.songStore &&
+        (await serveSongApi(request, response, options.songStore))
+      )
+        return
+      youtube(request, response, () => {
+        captions(request, response, () => {
+          lyrics(request, response, () => {
+            void serveFrontend(request, response, distDirectory)
+          })
         })
       })
-    })
+    })()
   })
 }
 
@@ -153,9 +235,23 @@ const isEntryPoint = process.argv[1]
   : false
 
 if (isEntryPoint) {
+  const password = process.env.FRETBLOOM_ACCESS_PASSWORD
+  const databaseUrl = process.env.DATABASE_URL
+  const localMode =
+    process.env.NODE_ENV === 'development' && !password && !databaseUrl
+  if (!localMode && (!password || password.length < 20 || !databaseUrl)) {
+    throw new Error(
+      'Database-backed hosting requires FRETBLOOM_ACCESS_PASSWORD (20+ characters) and DATABASE_URL; set NODE_ENV=development for local browser-only Songbook',
+    )
+  }
+  const songStore = databaseUrl ? createSongStore(databaseUrl) : undefined
+  if (songStore) await songStore.initialize()
   const port = readPort(process.env.PORT)
-  const host = process.env.HOST ?? '0.0.0.0'
-  const server = createFretBloomServer()
+  const host = process.env.HOST ?? (localMode ? '127.0.0.1' : '0.0.0.0')
+  const server = createFretBloomServer(DIST_DIRECTORY, {
+    accessPassword: password,
+    songStore,
+  })
   server.listen(port, host, () => {
     console.log(`FretBloom is listening on http://${host}:${port}`)
   })

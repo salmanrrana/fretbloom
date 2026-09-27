@@ -8,7 +8,7 @@ import {
   readCaptions,
   type SongLyrics,
 } from '../data/lyrics'
-import { sounds, type TimedChord } from '../data/songSync'
+import { MEDIA_TIME_TOLERANCE, sounds, type TimedChord } from '../data/songSync'
 import type { VideoClock } from './useYouTubeClock'
 import { revealInPane } from './revealInPane'
 
@@ -44,6 +44,7 @@ export function LyricsSheet(props: Props) {
   latest.current = props
   const [follow, setFollow] = useState(true)
   const [editing, setEditing] = useState(false)
+  const [usingSheetText, setUsingSheetText] = useState(false)
   const [text, setText] = useState(saved?.text ?? suggestedText)
   const [loading, setLoading] = useState(!saved)
   const [message, setMessage] = useState('')
@@ -64,8 +65,8 @@ export function LyricsSheet(props: Props) {
         : [],
     [lyrics, chords, analysis],
   )
-  const current = rows.findIndex(
-    (row) => position >= row.start && position < row.end,
+  const current = rows.findLastIndex(
+    (row) => position >= row.start - MEDIA_TIME_TOLERANCE && position < row.end,
   )
 
   useEffect(() => {
@@ -171,22 +172,43 @@ export function LyricsSheet(props: Props) {
         : (lyrics?.text ?? suggestedText),
     )
     setEditing(true)
+    setUsingSheetText(false)
     setMarking(false)
     setMessage('')
+  }
+  const useSheetText = () => {
+    request.current?.abort()
+    setLoading(false)
+    setText(suggestedText)
+    setUsingSheetText(true)
+    setEditing(true)
+    setMarking(false)
+    setMessage(
+      'Review the sheet lyrics, then save. You can time untimed lines afterward.',
+    )
   }
   const save = () => {
     const next = parseLyrics(text, analysis.duration)
     if (!next.lines.length) return
-    const cues = editedLyricCues(text, analysis.duration, lyrics)
+    // Sheet words have no known timing; caption marks belong to different words.
+    const cues = editedLyricCues(
+      text,
+      analysis.duration,
+      usingSheetText ? undefined : lyrics,
+    )
     latest.current.onSave({
       videoId: analysis.videoId,
-      source: text === lyrics?.text ? lyrics.source : 'pasted',
-      language: text === lyrics?.text ? lyrics.language : null,
-      automatic: text === lyrics?.text ? lyrics.automatic : false,
+      source:
+        !usingSheetText && text === lyrics?.text ? lyrics.source : 'pasted',
+      language:
+        !usingSheetText && text === lyrics?.text ? lyrics.language : null,
+      automatic:
+        !usingSheetText && text === lyrics?.text ? lyrics.automatic : false,
       text,
       cues,
     })
     setEditing(false)
+    setUsingSheetText(false)
     setMessage(
       cues
         ? ''
@@ -233,11 +255,19 @@ export function LyricsSheet(props: Props) {
         <button className="quiet-btn" onClick={edit}>
           {lyrics
             ? 'Edit lyrics'
-            : suggestedText
+            : suggestedText.trim()
               ? 'Use lyrics from your sheet'
               : 'Paste lyrics'}
         </button>
       </header>
+      {lyrics &&
+        suggestedText.trim() &&
+        suggestedText.trim() !== lyrics.text.trim() &&
+        !editing && (
+          <button className="quiet-btn" onClick={useSheetText}>
+            Use lyrics from your sheet
+          </button>
+        )}
       {lyrics && !editing && (
         <div className="lyrics-reading-tools">
           <label>
@@ -285,7 +315,14 @@ export function LyricsSheet(props: Props) {
             <button className="play-btn" onClick={save} disabled={!text.trim()}>
               Save lyrics
             </button>
-            <button className="quiet-btn" onClick={() => setEditing(false)}>
+            <button
+              className="quiet-btn"
+              onClick={() => {
+                setEditing(false)
+                setUsingSheetText(false)
+                setMessage('')
+              }}
+            >
               Cancel editing
             </button>
           </div>
@@ -382,18 +419,26 @@ export function LyricsSheet(props: Props) {
                         aria-label={`${chords.length ? 'Chords' : 'Notes'} for ${row.text}`}
                       >
                         {row.chords.length ? (
-                          row.chords.map((chord, n) => (
-                            <button
-                              key={n}
-                              onClick={() => clock.seek(chord.start)}
-                              className={
-                                sounds(chord, position) ? 'sounding' : ''
-                              }
-                              aria-label={`${chord.label} at ${timestamp(chord.start)}`}
-                            >
-                              {chord.label}
-                            </button>
-                          ))
+                          row.chords.map((chord, n) => {
+                            const continuation = chord.start < row.start
+                            return (
+                              <button
+                                key={n}
+                                onClick={() =>
+                                  clock.seek(
+                                    continuation ? row.start : chord.start,
+                                  )
+                                }
+                                className={`${index === current && sounds(chord, position) ? 'sounding' : ''}${continuation ? ' continuation' : ''}`.trim()}
+                                aria-label={`${chord.label}${continuation ? ' held from previous line' : ''} at ${timestamp(continuation ? row.start : chord.start)}`}
+                              >
+                                {chord.label}
+                                {continuation && (
+                                  <span className="held-label"> · held</span>
+                                )}
+                              </button>
+                            )
+                          })
                         ) : row.notes.length ? (
                           row.notes.map((note, n) => (
                             <button
