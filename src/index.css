@@ -48,7 +48,8 @@ html,
 body {
   margin: 0;
   padding: 0;
-  overflow-x: hidden;
+  /* clip, not hidden: hidden makes body a scroll box and breaks sticky */
+  overflow-x: clip;
 }
 
 body {
@@ -1264,356 +1265,7 @@ textarea:focus-visible {
   align-items: center;
 }
 
-/* -- player chrome -- */
-
-.songbook-back,
-.player-edit {
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-  letter-spacing: 0.06em;
-  color: var(--sage);
-  background: transparent;
-  border: none;
-  padding: 8px 4px;
-  cursor: pointer;
-  transition: color 0.2s ease;
-  text-shadow: 0 1px 10px rgba(16, 20, 8, 0.9);
-}
-
-.songbook-back:hover,
-.player-edit:hover {
-  color: var(--cream);
-}
-
-.player-title {
-  font-family: var(--font-display);
-  font-size: clamp(1.4rem, 3.4vw, 2.2rem);
-  font-weight: 720;
-  letter-spacing: -0.02em;
-  line-height: 1.05;
-  margin: 0;
-  color: var(--cream);
-  text-shadow: 0 2px 24px rgba(16, 20, 8, 0.9);
-  overflow-wrap: anywhere;
-}
-
-.quiet-btn {
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--cream);
-  background: rgba(16, 20, 8, 0.5);
-  border: 1px solid rgba(244, 238, 223, 0.28);
-  border-radius: 999px;
-  padding: 11px 20px;
-  cursor: pointer;
-  backdrop-filter: blur(6px);
-  transition:
-    border-color 0.2s ease,
-    color 0.2s ease;
-}
-
-.quiet-btn:hover {
-  border-color: rgba(244, 238, 223, 0.55);
-}
-
-.songbook-player-head {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
-}
-
-.songbook-hint {
-  color: var(--sage);
-  font-size: 0.8rem;
-  font-family: var(--font-mono);
-  margin: 0 0 0 auto;
-  text-shadow: 0 1px 10px rgba(16, 20, 8, 0.9);
-}
-
-/* ---- songbook follow-along: whole sheet + live sidebar ----
-   The sheet has no box. Type sits straight on the veil glass and dissolves
-   at the top and bottom edges with a mask, like a scroll unrolling. */
-
-.songbook-follow {
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(260px, 2fr);
-  gap: clamp(20px, 4vw, 48px);
-  align-items: start;
-}
-
-/* Sticks beside the sheet and scrolls on its own when taller than the
-   screen, so the chord card never pushes the lit sheet out of view. */
-.songbook-side {
-  position: sticky;
-  top: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  max-height: calc(100dvh - 36px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(168, 179, 148, 0.35) transparent;
-}
-
-/* Scroll the column rather than squash the player or the card. */
-.songbook-side > * {
-  flex-shrink: 0;
-}
-
-.sheet {
-  /* relative: the lit chord's offsetTop is measured against this pane */
-  position: relative;
-  font-family: var(--font-mono);
-  font-size: clamp(0.82rem, 2.2vw, 1rem);
-  line-height: 1.7;
-  color: var(--cream);
-  padding: 26px 4px 40px;
-  max-height: min(76vh, 980px);
-  overflow-y: auto;
-  overflow-x: auto;
-  text-shadow: 0 1px 8px rgba(16, 20, 8, 0.9);
-  mask-image: linear-gradient(
-    to bottom,
-    transparent,
-    black 26px,
-    black calc(100% - 40px),
-    transparent
-  );
-  scrollbar-width: thin;
-  scrollbar-color: rgba(168, 179, 148, 0.35) transparent;
-}
-
-.sheet::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.sheet::-webkit-scrollbar-thumb {
-  background: rgba(168, 179, 148, 0.35);
-  border-radius: 3px;
-}
-
-.sheet::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.sheet-line {
-  white-space: pre;
-  min-height: 1.55em;
-}
-
-.sheet-line.section {
-  color: var(--bougain);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-size: 0.78em;
-  margin-top: 6px;
-}
-
-.sheet-line.lyric {
-  color: var(--sage);
-}
-
-.sheet-line.staff {
-  color: color-mix(in srgb, var(--sage) 75%, transparent);
-}
-
-.sheet-chord {
-  font-family: var(--font-mono);
-  font-size: inherit;
-  font-weight: 700;
-  color: var(--marigold);
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  padding: 0 3px;
-  margin: 0 -3px;
-  cursor: pointer;
-  transition:
-    background 0.25s ease,
-    color 0.25s ease,
-    box-shadow 0.25s ease;
-}
-
-.sheet-chord:hover {
-  background: color-mix(in srgb, var(--marigold) 18%, transparent);
-}
-
-.sheet-chord.now {
-  color: var(--soil);
-  background: var(--marigold);
-  box-shadow: 0 0 18px color-mix(in srgb, var(--marigold) 55%, transparent);
-}
-
-.sheet-chord.next {
-  color: var(--bougain);
-  background: color-mix(in srgb, var(--bougain) 16%, transparent);
-}
-
-.songbook-listen.live {
-  border-color: var(--moss);
-  color: var(--moss);
-}
-
-/* ---- video sync (tap-through) ---- */
-
-.sync-btn {
-  width: 100%;
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--cream);
-  background: rgba(16, 20, 8, 0.5);
-  border: 1px solid color-mix(in srgb, var(--bougain) 55%, transparent);
-  border-radius: 999px;
-  padding: 12px 20px;
-  cursor: pointer;
-  backdrop-filter: blur(6px);
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.3s ease;
-}
-
-.sync-btn:hover {
-  border-color: var(--bougain);
-  box-shadow: 0 4px 24px rgba(217, 106, 158, 0.25);
-}
-
-.sync-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  color: var(--sage);
-  font-size: 0.85rem;
-  font-family: var(--font-mono);
-  margin: 0;
-}
-
-/* The words stay beside the dot; only the redo button wraps. */
-.sync-status > span:not(.sync-dot) {
-  flex: 1 1 12rem;
-  min-width: 0;
-}
-
-.sync-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--moss);
-  box-shadow: 0 0 10px var(--moss);
-  flex: none;
-}
-
-.sync-dot.rec {
-  background: var(--ember);
-  box-shadow: 0 0 10px var(--ember);
-  animation: sync-pulse 1s ease-in-out infinite;
-}
-
-@keyframes sync-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.35;
-  }
-}
-
-.sync-redo {
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  color: var(--sage);
-  background: transparent;
-  border: 1px solid var(--stem);
-  border-radius: 999px;
-  padding: 3px 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.sync-redo:hover {
-  color: var(--cream);
-  border-color: var(--sage);
-}
-
-.sync-count {
-  margin-left: auto;
-  color: var(--marigold);
-  font-weight: 700;
-}
-
-.sync-recording {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  border: 1px solid color-mix(in srgb, var(--ember) 50%, transparent);
-  border-radius: 14px;
-  padding: 12px 14px;
-}
-
-.songbook-listen-status {
-  font-size: 0.85rem;
-  margin: 0;
-}
-
-.video-frame {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  border-radius: 18px;
-  overflow: hidden;
-  border: 1px solid var(--stem);
-  background: #000;
-}
-
-.video-frame iframe {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border: 0;
-}
-
-.songbook-side .chord-name {
-  font-size: clamp(2rem, 4vw, 2.8rem);
-}
-
-.songbook-side .chord-card {
-  background: rgba(16, 20, 8, 0.55);
-  backdrop-filter: blur(8px);
-}
-
 @media (max-width: 900px) {
-  .songbook-follow {
-    grid-template-columns: 1fr;
-  }
-  /* Phone: sheet first, then a compact sticky-free sidebar below. */
-  .songbook-side {
-    position: static;
-    max-height: none;
-    overflow: visible;
-  }
-  .sheet {
-    max-height: 52vh;
-    padding-top: 16px;
-    mask-image: linear-gradient(
-      to bottom,
-      transparent,
-      black 16px,
-      black calc(100% - 28px),
-      transparent
-    );
-  }
   .press-bench {
     grid-template-columns: 1fr;
   }
@@ -1670,24 +1322,6 @@ textarea:focus-visible {
     position: static;
     padding: 0 14px calc(14px + env(safe-area-inset-bottom));
   }
-  .songbook-hint {
-    display: none;
-  }
-  .songbook-player-head {
-    gap: 10px;
-    margin-bottom: 8px;
-  }
-}
-
-.songbook-nav {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-}
-
-.songbook-next {
-  flex: 1;
-  max-width: 220px;
 }
 
 .footnote {
@@ -1972,102 +1606,587 @@ textarea:focus-visible {
   }
 }
 
-/* Local recording controls share the songbook's compact, warm palette. */
-.recording-panel {
-  border: 1px solid var(--stem);
-  border-radius: 14px;
-  padding: 18px;
-  background: var(--soil);
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-}
-.recording-panel h3 {
-  margin: 0;
-  font-size: 1.2rem;
-  color: var(--cream);
-}
-.recording-panel p {
-  margin: 0;
-}
-.recording-help {
-  font-size: 0.85rem;
-  line-height: 1.5;
-  color: var(--sage);
-}
-.recording-name {
-  overflow-wrap: anywhere;
-  color: var(--cream);
-  font-size: 0.9rem;
-}
-.recording-progress {
-  display: grid;
-  gap: 10px;
-  color: var(--cream);
-}
-.recording-progress label {
+.press-video-link {
   display: grid;
   gap: 8px;
-}
-.recording-progress progress {
-  width: 100%;
-  accent-color: var(--marigold);
-}
-.recording-now {
+  margin-bottom: 24px;
   color: var(--cream);
-  font-size: 1.05rem;
 }
-.recording-now strong {
-  color: var(--marigold);
-  font-family: var(--font-mono);
-  font-size: 1.4rem;
-  margin-left: 4px;
+.press-video-link input {
+  width: 100%;
 }
-/* Recognized chords as a compact, wrapping timeline of seek chips. */
-.chord-timeline summary {
-  cursor: pointer;
+
+/* ---- songbook player: the stand ----
+   Laid out for a guitarist a metre from the screen with both hands busy.
+   The stand across the top is the one loud thing: the chord to play now,
+   huge, with the chords to come sliding in beside it as blocks as wide as
+   they ring. Marigold means "now" everywhere; pink marks song sections.
+   Below it everything stays quiet: the sheet is type on the glass with one
+   lit chord, the video and sync details sit in a side rail, and the
+   transport is pinned to the bottom of the screen. */
+
+/* A song needs the height: the wordmark steps aside while one is open, and
+   the corner pills flow to the page end instead of covering the transport. */
+.shell:has(.songbook-player) > .masthead {
+  display: none;
 }
-.chord-timeline[open] summary {
-  margin-bottom: 8px;
+.shell:has(.songbook-player) ~ .greenhouse-corner {
+  position: static;
+  padding: 0 14px calc(14px + env(safe-area-inset-bottom));
 }
-.chord-timeline ol {
-  /* relative: the sounding chip's offsetTop is measured against this list */
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 0;
-  padding: 2px 0;
-  list-style: none;
-  max-height: 180px;
-  overflow: auto;
-  overscroll-behavior: contain;
-}
-.chord-timeline button {
+
+.player-head {
   display: flex;
   align-items: baseline;
-  gap: 6px;
-  min-height: 36px;
-  padding: 4px 10px;
-  border: 1px solid var(--stem);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--marigold);
+  flex-wrap: wrap;
+  gap: 2px 16px;
+  margin: 0 0 18px;
+}
+.songbook-back {
+  flex-basis: 100%;
+  justify-self: start;
+  text-align: left;
+}
+.songbook-back,
+.player-edit {
   font: inherit;
-  font-family: var(--font-mono);
+  font-size: 0.92rem;
+  color: var(--sage);
+  background: transparent;
+  border: none;
+  padding: 6px 0;
+  cursor: pointer;
+  text-shadow: 0 1px 10px rgba(16, 20, 8, 0.9);
+  transition: color 0.2s ease;
+}
+.player-edit {
+  text-decoration: underline;
+  text-decoration-color: var(--stem);
+  text-underline-offset: 5px;
+}
+.songbook-back:hover,
+.player-edit:hover {
+  color: var(--cream);
+}
+.player-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.7rem, 3.6vw, 2.6rem);
+  font-weight: 720;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin: 0;
+  color: var(--cream);
+  text-shadow: 0 2px 24px rgba(16, 20, 8, 0.9);
+  overflow-wrap: anywhere;
+}
+
+.quiet-btn {
+  font: inherit;
+  font-size: 0.92rem;
+  color: var(--cream);
+  background: rgba(16, 20, 8, 0.5);
+  border: 1px solid rgba(244, 238, 223, 0.22);
+  border-radius: 999px;
+  min-height: 44px;
+  padding: 9px 18px;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+.quiet-btn:hover {
+  border-color: rgba(244, 238, 223, 0.55);
+}
+.quiet-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* -- the stand: now + runway -- */
+
+.stand {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  margin-bottom: 22px;
+  border-radius: 22px;
+  background: rgba(16, 20, 8, 0.66);
+  border: 1px solid rgba(168, 179, 148, 0.16);
+  backdrop-filter: blur(10px) saturate(1.1);
+  overflow: hidden;
+}
+.stand .chord-card {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-areas:
+    'role role'
+    'name shape';
+  justify-content: start;
+  align-items: center;
+  gap: 2px 20px;
+  min-width: 260px;
+  padding: 18px 24px 18px 26px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.stand .chord-card .role {
+  grid-area: role;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--bougain);
+}
+.stand .chord-name {
+  grid-area: name;
+  font-size: clamp(3.6rem, 7.5vw, 6.4rem);
+  font-weight: 780;
+  font-variation-settings: 'opsz' 96;
+  letter-spacing: -0.045em;
+  line-height: 0.9;
+  color: var(--marigold);
+  transition: color 0.3s ease;
+}
+.stand .chord-card.hit .chord-name {
+  color: var(--leaf);
+}
+/* Single-note steps name their pitches, so the name runs long. */
+.stand .chord-card:has(.tab-block) .chord-name {
+  font-size: clamp(1.5rem, 2.6vw, 2.2rem);
+  letter-spacing: -0.01em;
+}
+.stand .diagram,
+.stand .tab-block {
+  grid-area: shape;
+}
+.stand .songbook-warn,
+.stand-listen {
+  grid-column: 1 / -1;
+}
+.stand-listen {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  max-width: 280px;
+}
+.songbook-listen-status {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--sage);
+}
+
+/* The runway: its left edge is the playhead. Blocks sit at start × --u and
+   the track shifts left by --at × --u, written every frame while playing. */
+.runway {
+  --u: 64px; /* one second */
+  position: relative;
+  min-height: 156px;
+  overflow: hidden;
+  border-left: 1px solid rgba(168, 179, 148, 0.16);
+}
+.runway.by-steps {
+  --u: 116px; /* one sheet step */
+}
+.runway::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 2;
+  width: 3px;
+  background: var(--marigold);
+  box-shadow: 0 0 18px var(--marigold);
+}
+/* The far future dissolves instead of stopping at a hard edge. */
+.runway::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 0 auto;
+  z-index: 2;
+  width: 16%;
+  background: linear-gradient(to right, transparent, rgba(16, 20, 8, 0.9));
+  pointer-events: none;
+}
+.runway-track {
+  position: absolute;
+  inset: 0;
+  transform: translateX(calc(var(--at, 0) * var(--u) * -1));
+  will-change: transform;
+}
+.runway.by-steps .runway-track {
+  transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+.runway-chord {
+  position: absolute;
+  top: 46px;
+  bottom: 22px;
+  left: calc(var(--start) * var(--u));
+  width: calc(var(--len) * var(--u) - 4px);
+  display: flex;
+  align-items: center;
+  padding-left: 14px;
+  overflow: hidden;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 2.4vw, 2rem);
   font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--cream);
+  background: rgba(244, 238, 223, 0.07);
+  border-left: 3px solid rgba(244, 238, 223, 0.75);
+  border-radius: 3px 10px 10px 3px;
+}
+.runway-chord.now {
+  color: var(--soil);
+  background: var(--marigold);
+  border-left-color: var(--marigold);
+}
+.runway-section {
+  position: absolute;
+  top: 14px;
+  bottom: 12px;
+  left: calc(var(--start) * var(--u));
+  padding-left: 8px;
+  border-left: 1px solid color-mix(in srgb, var(--bougain) 70%, transparent);
+  font-size: 0.88rem;
+  line-height: 1.2;
+  color: var(--bougain);
+  white-space: nowrap;
+}
+
+/* -- body: sheet + rail -- */
+
+.player-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  gap: clamp(20px, 3vw, 44px);
+  align-items: start;
+}
+.player-body.no-rail {
+  grid-template-columns: minmax(0, 1fr);
+}
+.player-body.no-pages {
+  grid-template-columns: minmax(0, 560px);
+  justify-content: center;
+}
+.songbook-pages {
+  min-width: 0;
+}
+/* Sticks beside the sheet; scrolls on its own when the details run long. */
+.player-rail {
+  position: sticky;
+  top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  max-height: calc(100dvh - 130px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 179, 148, 0.35) transparent;
+}
+.player-rail > * {
+  flex-shrink: 0;
+}
+
+.sheet-views {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(168, 179, 148, 0.16);
+}
+.sheet-views button {
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--sage);
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 10px 0;
+  cursor: pointer;
+}
+.sheet-views button[aria-pressed='true'] {
+  color: var(--cream);
+  border-bottom-color: var(--marigold);
+}
+
+.sheet {
+  /* relative: the lit chord's offsetTop is measured against this pane */
+  position: relative;
+  font-family: var(--font-mono);
+  font-size: clamp(0.88rem, 1.25vw, 1.06rem);
+  line-height: 1.75;
+  color: var(--cream);
+  padding: 22px 4px 48px;
+  min-height: 260px;
+  max-height: calc(100dvh - 420px);
+  overflow: auto;
+  text-shadow: 0 1px 8px rgba(16, 20, 8, 0.9);
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 22px,
+    black calc(100% - 44px),
+    transparent
+  );
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 179, 148, 0.35) transparent;
+}
+.sheet-line {
+  white-space: pre;
+  min-height: 1.6em;
+  padding-inline: 12px;
+}
+.sheet-line.band {
+  background: rgba(244, 238, 223, 0.06);
+  box-shadow: inset 2px 0 var(--marigold);
+}
+.sheet-line.section {
+  margin-top: 10px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  color: var(--bougain);
+}
+.sheet-line.lyric,
+.sheet-line.staff {
+  color: var(--sage);
+}
+.sheet-line.lyric.band {
+  color: var(--cream);
+}
+.sheet-chord {
+  font: inherit;
+  font-weight: 700;
+  color: var(--marigold);
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  padding: 0 3px;
+  margin: 0 -3px;
   cursor: pointer;
   transition:
     background 0.2s ease,
     color 0.2s ease;
 }
-.chord-timeline button span {
+.sheet-chord:hover {
+  background: color-mix(in srgb, var(--marigold) 18%, transparent);
+}
+.sheet-chord.now {
+  color: var(--soil);
+  background: var(--marigold);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--marigold) 50%, transparent);
+}
+
+/* -- rail: video, audio fallback, sync details -- */
+
+.song-playback {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.song-playback [hidden] {
+  display: none;
+}
+.video-frame {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(168, 179, 148, 0.16);
+  background: #000;
+}
+.video-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.song-audio-status,
+.recording-panel {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: rgba(16, 20, 8, 0.66);
+  border: 1px solid rgba(168, 179, 148, 0.16);
+}
+.song-audio-status strong,
+.recording-panel h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--cream);
+}
+.song-audio-status p,
+.recording-panel p {
+  margin: 0;
+}
+.song-audio-status p,
+.recording-help {
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--sage);
+}
+.recording-panel progress {
+  width: 100%;
+  accent-color: var(--marigold);
+}
+.song-playback-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+.song-playback-links a,
+.song-playback-links button,
+.lyrics-caption-retry {
+  border: 0;
+  background: transparent;
+  padding: 6px 0;
+  color: var(--sage);
+  font: inherit;
+  font-size: 0.82rem;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+.recording-now {
+  color: var(--cream);
+}
+.recording-now strong {
+  margin-left: 4px;
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  color: var(--marigold);
+}
+
+.sync-btn {
+  width: 100%;
+  min-height: 44px;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--cream);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--bougain) 55%, transparent);
+  border-radius: 999px;
+  padding: 10px 18px;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+.sync-btn:hover {
+  border-color: var(--bougain);
+}
+.sync-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--sage);
+}
+/* The words stay beside the dot; only the redo button wraps. */
+.sync-status > span:not(.sync-dot) {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.sync-status strong {
+  color: var(--marigold);
+}
+.sync-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--leaf);
+  box-shadow: 0 0 10px var(--leaf);
+}
+.sync-dot.rec {
+  background: var(--marigold);
+  box-shadow: 0 0 10px var(--marigold);
+  animation: sync-pulse 1s ease-in-out infinite;
+}
+@keyframes sync-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+.sync-redo {
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--sage);
+  background: transparent;
+  border: 1px solid var(--stem);
+  border-radius: 999px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.sync-redo:hover {
+  color: var(--cream);
+  border-color: var(--sage);
+}
+.sync-count {
+  margin-left: auto;
+  color: var(--marigold);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Recognized chords as a compact, wrapping timeline of seek chips. */
+.chord-timeline summary,
+.recording-notes summary {
+  cursor: pointer;
+}
+.chord-timeline[open] summary {
+  margin-bottom: 8px;
+}
+.chord-timeline ol,
+.recording-notes ol {
+  /* relative: the sounding chip's offsetTop is measured against this list */
+  position: relative;
+  max-height: 180px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  padding: 2px 0;
+  list-style: none;
+}
+.chord-timeline ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chord-timeline button {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-height: 40px;
+  padding: 4px 11px;
+  border: 1px solid var(--stem);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--marigold);
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.chord-timeline button span,
+.recording-notes button span {
+  font-family: var(--font-body);
   font-weight: 400;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-variant-numeric: tabular-nums;
   color: var(--sage);
 }
-.chord-timeline button:hover {
+.chord-timeline button:hover,
+.recording-notes button:hover {
   background: var(--stem);
 }
 .chord-timeline button[aria-current] {
@@ -2079,18 +2198,13 @@ textarea:focus-visible {
   color: color-mix(in srgb, var(--soil) 75%, transparent);
 }
 .recording-notes summary {
+  font-size: 0.86rem;
   color: var(--sage);
-  cursor: pointer;
-}
-.recording-notes ol {
-  padding: 0;
-  list-style: none;
-  max-height: 180px;
-  overflow: auto;
 }
 .recording-notes button {
   display: flex;
-  gap: 16px;
+  justify-content: space-between;
+  gap: 12px;
   width: 100%;
   padding: 8px;
   border: 0;
@@ -2100,339 +2214,31 @@ textarea:focus-visible {
   font: inherit;
   cursor: pointer;
 }
-.recording-notes button:hover {
-  background: var(--stem);
-}
-.recording-notes button span {
-  font-variant-numeric: tabular-nums;
-  color: var(--sage);
-}
-.recording-panel :focus-visible {
-  outline: 2px solid var(--marigold);
-  outline-offset: 3px;
-}
-.sheet-line.staff {
-  color: var(--sage);
-}
 
-.songbook-follow.video-only {
-  display: block;
-  max-width: 760px;
-  margin-inline: auto;
-}
-.songbook-follow.video-only .songbook-side {
-  position: static;
-  max-height: none;
-  overflow: visible;
-}
-.press-video-link {
-  display: grid;
-  gap: 8px;
-  margin-bottom: 24px;
-  color: var(--cream);
-}
-.press-video-link input {
-  width: 100%;
-}
+/* -- lyrics & notes -- */
 
-/* Lyrics keep each phrase and its detected pitches in the same reading row. */
-.songbook-pages {
-  min-width: 0;
-}
-.sheet-views {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.sheet-views button {
-  padding: 10px 14px;
-  border: 1px solid var(--stem);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--sage);
-  font: inherit;
-  cursor: pointer;
-}
-.sheet-views button[aria-pressed='true'] {
-  color: var(--marigold);
-  border-color: var(--marigold);
-}
 .lyrics-sheet {
-  padding: 22px;
-  border: 1px solid var(--stem);
-  border-radius: 14px;
-  background: var(--soil);
   color: var(--cream);
 }
 .lyrics-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
+  padding-top: 14px;
 }
 .lyrics-head h3 {
   margin: 0;
-  font-size: 1.4rem;
-}
-.lyrics-editor {
-  display: grid;
-  gap: 12px;
-  margin-top: 18px;
-}
-.lyrics-editor label {
-  color: var(--sage);
-  font-size: 0.9rem;
-  line-height: 1.5;
-}
-.lyrics-editor textarea {
-  width: 100%;
-  min-height: 190px;
-}
-.lyrics-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-.lyrics-marking {
-  margin: 16px 0;
-  padding: 14px;
-  border-left: 3px solid var(--marigold);
-  background: var(--stem);
-}
-.lyrics-lines {
-  position: relative;
-  max-height: 64vh;
-  overflow: auto;
-  overscroll-behavior: contain;
-  margin-top: 18px;
-}
-.lyric-row {
-  padding: 16px 12px;
-  border-left: 3px solid transparent;
-  border-bottom: 1px solid var(--stem);
-}
-.lyric-row.active {
-  background: var(--stem);
-  border-left-color: var(--marigold);
-}
-.lyric-words {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  width: 100%;
-  padding: 0;
-  text-align: left;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: 1.12rem;
-  line-height: 1.55;
-  cursor: pointer;
-  overflow-wrap: anywhere;
-}
-.lyric-time {
-  flex-shrink: 0;
-  color: var(--sage);
-  font-size: 0.75rem;
-  font-variant-numeric: tabular-nums;
-}
-.lyric-notes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 10px 0 0 42px;
-}
-.lyric-notes button {
-  min-width: 38px;
-  min-height: 34px;
-  padding: 5px 8px;
-  border: 1px solid var(--stem);
-  border-radius: 5px;
-  background: var(--soil);
-  color: var(--marigold);
-  font: inherit;
-  font-size: 0.82rem;
-  cursor: pointer;
-}
-.lyric-notes button.sounding {
-  color: var(--soil);
-  background: var(--marigold);
-}
-.lyric-row.instrumental .lyric-words {
-  font-size: 0.88rem;
-  color: var(--sage);
-}
-.lyric-untimed {
-  line-height: 1.65;
-  padding: 8px 12px;
-  margin: 0;
-}
-.lyric-untimed.active {
-  border-left: 3px solid var(--marigold);
-  background: var(--stem);
-}
-.lyrics-caption-retry {
-  margin-top: 20px;
-  min-height: 40px;
-  padding: 0;
-  background: transparent;
-  border: 0;
-  color: var(--sage);
-  font: inherit;
-  font-size: 0.8rem;
-  text-decoration: underline;
-  text-underline-offset: 4px;
-  cursor: pointer;
-}
-.lyrics-sheet :focus-visible,
-.sheet-views :focus-visible {
-  outline: 2px solid var(--marigold);
-  outline-offset: 3px;
-}
-@media (max-width: 760px) {
-  .lyrics-sheet {
-    padding: 16px 12px;
-  }
-  .lyrics-head h3 {
-    font-size: 1.2rem;
-  }
-  .lyric-row {
-    padding: 14px 8px;
-  }
-  .lyric-words {
-    gap: 10px;
-    font-size: 1rem;
-  }
-  .lyric-notes {
-    margin-left: 36px;
-  }
-  .lyric-notes button {
-    min-height: 44px;
-  }
-  .chord-timeline button {
-    min-height: 44px;
-  }
-}
-@media (max-width: 900px) {
-  .songbook-follow.with-lyrics .songbook-side {
-    display: contents;
-  }
-  .songbook-follow.with-lyrics .video-frame {
-    grid-row: 1;
-  }
-  .songbook-follow.with-lyrics .songbook-pages {
-    grid-row: 2;
-  }
-  .songbook-follow.with-lyrics .lyrics-lines {
-    max-height: 45vh;
-  }
-}
-
-/* Practice view: the lyrics lead; the transport remains within reach. */
-.songbook-follow.with-lyrics {
-  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
-  gap: 24px;
-}
-.song-playback {
-  min-width: 0;
-  background: var(--soil);
-  border: 1px solid var(--stem);
-  border-radius: 14px;
-  overflow: hidden;
-}
-.song-playback .video-frame {
-  border: 0;
-  border-radius: 0;
-  min-height: 200px;
-}
-.song-playback [hidden] {
-  display: none;
-}
-.song-audio-status {
-  padding: 20px 20px 0;
-}
-.song-audio-status strong {
+  font-family: var(--font-display);
   font-size: 1.2rem;
-  color: var(--cream);
+  font-weight: 650;
 }
-.song-audio-status p {
+.lyrics-sheet > .recording-help {
+  margin: 10px 0 0;
+}
+.lyrics-sheet a {
   color: var(--sage);
-  font-size: 0.88rem;
-  line-height: 1.5;
-}
-.song-transport {
-  padding: 16px;
-  display: grid;
-  gap: 16px;
-}
-.song-transport-buttons {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.song-transport-buttons .play-btn,
-.song-transport-buttons .quiet-btn {
-  min-height: 44px;
-  padding: 10px 14px;
-}
-.song-speed {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.85rem;
-  color: var(--cream);
-}
-.song-speed select {
-  padding: 9px 4px;
-  background: var(--soil);
-  color: var(--cream);
-  border: 1px solid var(--stem);
-  border-radius: 6px;
-  font: inherit;
-}
-.song-seek {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 0.8rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--cream);
-}
-.song-seek input {
-  flex: 1;
-  min-width: 40px;
-  accent-color: var(--marigold);
-  cursor: pointer;
-}
-.song-playback-links {
-  padding: 0 16px 16px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-.song-playback-links a,
-.song-playback-links button {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  color: var(--sage);
-  font: inherit;
-  font-size: 0.8rem;
-  text-decoration: underline;
-  text-underline-offset: 4px;
-  cursor: pointer;
-}
-.song-playback :focus-visible {
-  outline: 2px solid var(--marigold);
-  outline-offset: 3px;
-}
-.lyrics-sheet {
-  padding: 24px;
-}
-.lyrics-head h3 {
-  font-size: 1.6rem;
 }
 .lyrics-reading-tools {
   display: flex;
@@ -2445,127 +2251,336 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--cream);
   font-size: 0.9rem;
 }
 .lyrics-reading-tools input {
-  accent-color: var(--marigold);
   width: 18px;
   height: 18px;
+  accent-color: var(--marigold);
 }
-.lyrics-lines {
-  max-height: calc(100dvh - 340px);
-  min-height: 240px;
-  scroll-padding-block: 24px;
-  scrollbar-color: var(--sage) var(--soil);
-  scrollbar-width: thin;
+.lyrics-editor {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
 }
-.lyric-row {
-  padding: 20px 12px;
-  border-left: 0;
-}
-.lyric-row.active {
-  border-left: 0;
-  background: var(--stem);
-  border-radius: 8px;
-}
-.lyric-words {
-  font-size: clamp(1.35rem, 2vw, 1.8rem);
-  line-height: 1.55;
-  color: var(--cream);
-}
-.lyric-row.active .lyric-words {
-  color: #fff9e8;
-  font-weight: 650;
-}
-.lyric-row.instrumental .lyric-words {
-  font-size: 1rem;
-}
-.lyric-time {
-  min-width: 34px;
-}
-.lyric-notes {
-  margin-left: 48px;
-}
-.lyric-notes button {
-  min-height: 38px;
-}
-.lyric-untimed {
-  font-size: clamp(1.35rem, 2vw, 1.8rem);
-}
-.lyric-untimed.active,
-.lyrics-marking {
-  border-left: 0;
-  border-radius: 8px;
-}
-.lyrics-sheet a {
+.lyrics-editor label {
+  font-size: 0.9rem;
+  line-height: 1.5;
   color: var(--sage);
 }
-.focus-lyrics .song-playback .video-frame {
-  display: none;
+.lyrics-editor textarea {
+  width: 100%;
+  min-height: 190px;
 }
-.focus-lyrics .songbook-follow {
+.lyrics-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.lyrics-marking {
+  margin: 16px 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(16, 20, 8, 0.66);
+  box-shadow: inset 2px 0 var(--marigold);
+}
+.lyrics-marking p {
+  margin: 0 0 12px;
+}
+.lyrics-lines {
+  position: relative;
+  min-height: 240px;
+  max-height: calc(100dvh - 520px);
+  margin-top: 14px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scroll-padding-block: 24px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 179, 148, 0.35) transparent;
+}
+.lyric-row {
+  padding: 12px 12px 14px;
+}
+.lyric-row.active,
+.lyric-untimed.active {
+  background: rgba(244, 238, 223, 0.06);
+  box-shadow: inset 2px 0 var(--marigold);
+}
+.lyric-words {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: var(--sage);
+  font: inherit;
+  font-size: clamp(1.15rem, 1.7vw, 1.45rem);
+  line-height: 1.45;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.lyric-row.active .lyric-words {
+  color: var(--cream);
+}
+.lyric-row.instrumental .lyric-words {
+  font-size: 0.92rem;
+}
+.lyric-time {
+  flex-shrink: 0;
+  min-width: 34px;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--sage);
+}
+.lyric-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0 48px;
+}
+.lyric-notes button,
+.lyric-notes .held {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 40px;
+  min-height: 38px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+}
+.lyric-notes button {
+  justify-content: center;
+  border: 1px solid var(--stem);
+  background: rgba(16, 20, 8, 0.6);
+  color: var(--marigold);
+  cursor: pointer;
+}
+.lyric-notes button.sounding {
+  color: var(--soil);
+  background: var(--marigold);
+  border-color: var(--marigold);
+}
+/* Still ringing from the line before: keep holding, nothing new to play. */
+.lyric-notes .held {
+  border: 1px dashed rgba(168, 179, 148, 0.45);
+  color: var(--sage);
+}
+.lyric-notes .held small {
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 400;
+}
+.lyric-notes .held.sounding {
+  color: var(--marigold);
+  border-color: var(--marigold);
+}
+.lyric-untimed {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: clamp(1.15rem, 1.7vw, 1.45rem);
+  line-height: 1.6;
+}
+
+/* Focus lyrics: the rail steps aside so the words get the width. */
+.focus-lyrics .player-body {
   grid-template-columns: minmax(0, 1fr);
 }
-.focus-lyrics .songbook-side {
-  display: contents;
-}
-.focus-lyrics .song-playback {
-  grid-row: 1;
-  position: sticky;
-  top: 8px;
-  z-index: 2;
-}
-.focus-lyrics .songbook-pages {
-  grid-row: 2;
-}
-.focus-lyrics .song-audio-status > strong,
-.focus-lyrics .song-audio-status > p:not([role]),
-.focus-lyrics .song-playback-links {
+.focus-lyrics .player-rail {
   display: none;
 }
-.focus-lyrics .song-audio-status {
-  padding: 0 16px;
+.focus-lyrics .lyric-words {
+  font-size: clamp(1.4rem, 2.4vw, 2rem);
 }
-.focus-lyrics .song-transport {
-  grid-template-columns: auto minmax(120px, 1fr);
+
+/* -- transport bar, pinned to the bottom of the screen -- */
+
+.player-bar {
+  position: sticky;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 3;
+  display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  margin-top: 20px;
+  padding: 10px 14px 10px 10px;
+  border-radius: 20px;
+  background: rgba(16, 20, 8, 0.86);
+  border: 1px solid rgba(168, 179, 148, 0.2);
+  backdrop-filter: blur(14px) saturate(1.1);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
 }
-.focus-lyrics .lyrics-lines {
-  max-height: 65dvh;
+.song-transport {
+  flex: 1 1 520px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
+.player-bar .play-btn {
+  min-height: 44px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.song-transport .play-btn {
+  min-width: 132px;
+}
+.song-seek {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 160px;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--sage);
+}
+.song-seek input {
+  flex: 1;
+  min-width: 60px;
+  accent-color: var(--marigold);
+  cursor: pointer;
+}
+.song-speed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.86rem;
+  color: var(--sage);
+}
+.song-speed select {
+  min-height: 40px;
+  padding: 6px 8px;
+  font: inherit;
+  color: var(--cream);
+  background: var(--soil);
+  border: 1px solid var(--stem);
+  border-radius: 10px;
+}
+.step-controls,
+.sync-recording {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.sync-recording {
+  flex: 1 1 420px;
+}
+.step-btn {
+  width: 44px;
+  padding: 0;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+.songbook-listen.live {
+  color: var(--leaf);
+  border-color: var(--leaf);
+}
+
 @media (max-width: 900px) {
-  .songbook-follow.with-lyrics {
+  .stand {
     grid-template-columns: minmax(0, 1fr);
   }
-  .songbook-follow.with-lyrics .song-playback {
-    grid-row: 1;
-    position: sticky;
-    top: 0;
-    z-index: 2;
+  .stand .chord-card {
+    min-width: 0;
+    padding: 14px 18px 12px;
   }
-  .songbook-follow.with-lyrics .songbook-pages {
-    grid-row: 2;
+  .runway {
+    --u: 56px;
+    min-height: 116px;
+    border-left: 0;
+    border-top: 1px solid rgba(168, 179, 148, 0.16);
   }
-  .song-playback .video-frame {
-    max-height: 220px;
+  .runway.by-steps {
+    --u: 92px;
   }
-  .lyrics-sheet {
-    padding: 18px 14px;
+  .runway-chord {
+    top: 36px;
+    bottom: 14px;
+    font-size: 1.35rem;
   }
-  .songbook-follow.with-lyrics .lyrics-lines {
-    max-height: 55dvh;
+  .runway-section {
+    top: 10px;
   }
-  .lyric-words {
-    font-size: 1.4rem;
+  .player-body {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .lyrics-head h3 {
-    font-size: 1.4rem;
+  .player-rail {
+    position: static;
+    max-height: none;
+    overflow: visible;
   }
-  .lyric-notes button {
+  .sheet,
+  .lyrics-lines {
+    max-height: 56dvh;
+  }
+}
+
+@media (max-width: 640px) {
+  .player-head {
+    margin-bottom: 12px;
+  }
+  .stand {
+    margin-bottom: 14px;
+    border-radius: 18px;
+  }
+  .stand .chord-name {
+    font-size: 3.4rem;
+  }
+  .stand .diagram {
+    width: 84px;
+    height: auto;
+  }
+  .player-bar {
+    gap: 8px;
+    padding: 10px;
+    border-radius: 16px;
+  }
+  .song-transport {
+    flex-wrap: wrap;
+  }
+  .song-seek {
+    order: -1;
+    flex-basis: 100%;
+  }
+  .song-transport .play-btn {
+    flex: 1;
+    min-width: 0;
+  }
+  .song-speed > span {
+    display: none;
+  }
+  .step-controls,
+  .sync-recording {
+    flex-wrap: wrap;
+    width: 100%;
+    margin-left: 0;
+  }
+  .songbook-listen {
+    flex: 1;
+  }
+  .lyric-notes {
+    margin-left: 0;
+  }
+  .lyric-notes button,
+  .lyric-notes .held {
     min-height: 44px;
   }
-  .focus-lyrics .song-transport {
-    grid-template-columns: 1fr;
+  .chord-timeline button {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .runway.by-steps .runway-track {
+    transition: none;
   }
 }

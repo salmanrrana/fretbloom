@@ -230,7 +230,7 @@ export function YouTubeAnalysisPanel(props: Props) {
           Try analysis again
         </button>
       )}
-      {/* The card below shows the synced sheet's chord, or the heard one when
+      {/* The stand shows the synced sheet's chord, or the heard one when
           there is no sheet; only an unsynced sheet needs this readout. */}
       {result && steps.length > 0 && !syncSource && (
         <p className="recording-now">
@@ -270,7 +270,7 @@ export function YouTubeAnalysisPanel(props: Props) {
       {result && heardChords && (
         <>
           {heardChords.length ? (
-            // Folded by default: the chord card is the live view, this is
+            // Folded by default: the stand is the live view, this is
             // the map for jumping around the song.
             <details className="chord-timeline">
               <summary className="recording-help">

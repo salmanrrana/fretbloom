@@ -95,16 +95,16 @@ export function chordAt(
 }
 
 /**
- * Index of the next step whose chord differs from step `index`, or -1 when
- * the rest of the sheet stays on the same chord. Runs of one chord are common
- * in pasted sheets, so "up next" should name the change, not the repeat.
+ * Merges back-to-back repeats of one chord into a single span. A sheet
+ * restates the chord at the start of each line; played along, that is one
+ * chord held, not a new one to find. Works in any unit (seconds or steps).
  */
-export function nextChangeIndex(
-  steps: readonly ParsedStep[],
-  index: number,
-): number {
-  const symbol = steps[index]?.chord.symbol
-  for (let i = index + 1; i < steps.length; i++)
-    if (steps[i].chord.symbol !== symbol) return i
-  return -1
+export function chordRuns(chords: readonly TimedChord[]): TimedChord[] {
+  const runs: TimedChord[] = []
+  for (const chord of chords) {
+    const last = runs.at(-1)
+    if (last?.label === chord.label) last.end = Math.max(last.end, chord.end)
+    else runs.push({ ...chord })
+  }
+  return runs
 }

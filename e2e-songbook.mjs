@@ -142,7 +142,7 @@ check(
 )
 
 // Advance via button
-await page.getByRole('button', { name: 'next →' }).click()
+await page.getByRole('button', { name: 'Next chord' }).click()
 check(
   (await page.locator('.chord-card.now .chord-name').innerText()) === 'D',
   'next button advances G -> D',
@@ -173,11 +173,6 @@ check(
 check(
   await page.locator('.chord-card.now .diagram').isVisible(),
   'barre chord renders a diagram',
-)
-const tabText = await page.locator('.chord-card.now .tab-block').innerText()
-check(
-  /2/.test(tabText) && /4/.test(tabText),
-  `F#m tab shows barre frets (${tabText.replace(/\n/g, ' ')})`,
 )
 
 // Mic follow mode starts listening

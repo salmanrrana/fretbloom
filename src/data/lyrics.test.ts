@@ -82,29 +82,61 @@ describe('lyrics with detected notes', () => {
     expect(rows.flatMap((row) => row.notes)).toEqual(notes)
     expect(lyricRows(cues, [], [], 10)).toHaveLength(2)
   })
-  it('puts chords on every line they sound through and drops single notes', () => {
+  it('puts each chord under the line it is struck in and drops single notes', () => {
     const chords = [
       { label: 'C', start: 0, end: 2.1 },
       { label: 'G', start: 2.1, end: 5.15 },
       { label: 'Am', start: 5.15, end: 10 },
     ]
-    // C spills 0.1 s into "Morning light": jitter, not a chord for that line.
+    // C spills 0.1 s into "Morning light": jitter, not a chord to hold.
     expect(
-      chordsForLyrics(cues, chords).map((group) =>
-        group.map((chord) => chord.label),
-      ),
-    ).toEqual([['G'], ['Am']])
+      chordsForLyrics(cues, chords).map(({ held, chords }) => [
+        held?.label ?? null,
+        ...chords.map((chord) => chord.label),
+      ]),
+    ).toEqual([
+      [null, 'G'],
+      [null, 'Am'],
+    ])
     const rows = lyricRows(cues, chords, notes, 10)
     expect(
-      rows.map((row) => [row.instrumental, ...row.chords.map((c) => c.label)]),
+      rows.map((row) => [
+        row.instrumental,
+        row.held?.label ?? null,
+        ...row.chords.map((c) => c.label),
+      ]),
     ).toEqual([
-      [true, 'C'],
-      [false, 'G'],
+      [true, null, 'C'],
+      [false, null, 'G'],
       [true, 'G'],
-      [false, 'Am'],
+      [false, null, 'Am'],
       [true, 'Am'],
     ])
     expect(rows.every((row) => row.notes.length === 0)).toBe(true)
+  })
+  it('never repeats a held chord as a new one on the next line', () => {
+    const lines = [
+      { start: 0, end: 4, text: 'One' },
+      { start: 4, end: 8, text: 'Two' },
+      { start: 8, end: 12, text: 'Three' },
+    ]
+    const chords = [
+      { label: 'C', start: 0, end: 2 },
+      { label: 'G', start: 2, end: 5 }, // rings into line two
+      { label: 'C', start: 5, end: 6 },
+      { label: 'C', start: 6, end: 7.8 }, // restated: still one C
+      { label: 'Am', start: 7.8, end: 12 }, // struck just before line three
+    ]
+    expect(
+      chordsForLyrics(lines, chords).map(({ held, chords }) => [
+        held?.label ?? null,
+        ...chords.map((chord) => `${chord.label}@${chord.start}`),
+      ]),
+    ).toEqual([
+      [null, 'C@0', 'G@2'],
+      ['G', 'C@5'],
+      [null, 'Am@7.8'],
+    ])
   })
   it('uses sorted LRC timestamps, including repeated lines and offsets', () => {
     expect(

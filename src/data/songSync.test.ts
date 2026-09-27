@@ -2,8 +2,8 @@ import { expect, test } from 'vitest'
 import { parseTab } from './tabParser'
 import {
   chordAt,
+  chordRuns,
   matchingSequence,
-  nextChangeIndex,
   sheetChords,
   stepAtTime,
   validSyncTimes,
@@ -54,9 +54,11 @@ test('a synced sheet becomes timed chords that end where the next begins', () =>
   expect(chordAt(chords, 8)).toBeUndefined()
 })
 
-test('up next names the next chord change, skipping repeats', () => {
+test('repeats of one chord merge into one held span', () => {
   const steps = parseTab('C C G G Am').steps
-  expect([0, 1, 2, 3, 4].map((i) => nextChangeIndex(steps, i))).toEqual([
-    2, 2, 4, 4, -1,
+  expect(chordRuns(sheetChords(steps, [0, 2, 4, 6, 8], 10))).toEqual([
+    { label: 'C', start: 0, end: 4 },
+    { label: 'G', start: 4, end: 8 },
+    { label: 'Am', start: 8, end: 10 },
   ])
 })

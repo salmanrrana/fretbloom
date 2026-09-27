@@ -377,23 +377,37 @@ export function LyricsSheet(props: Props) {
                         </span>
                         <span>{row.text}</span>
                       </button>
+                      {/* Only the current line lights, so a chord that rings
+                          across a line break is never lit twice. */}
                       <div
                         className="lyric-notes"
                         aria-label={`${chords.length ? 'Chords' : 'Notes'} for ${row.text}`}
                       >
-                        {row.chords.length ? (
-                          row.chords.map((chord, n) => (
-                            <button
-                              key={n}
-                              onClick={() => clock.seek(chord.start)}
-                              className={
-                                sounds(chord, position) ? 'sounding' : ''
-                              }
-                              aria-label={`${chord.label} at ${timestamp(chord.start)}`}
-                            >
-                              {chord.label}
-                            </button>
-                          ))
+                        {row.held || row.chords.length ? (
+                          <>
+                            {row.held && (
+                              <span
+                                className={`held${index === current && sounds(row.held, position) ? ' sounding' : ''}`}
+                                title="Still ringing from the line before"
+                              >
+                                {row.held.label} <small>held</small>
+                              </span>
+                            )}
+                            {row.chords.map((chord, n) => (
+                              <button
+                                key={n}
+                                onClick={() => clock.seek(chord.start)}
+                                className={
+                                  index === current && sounds(chord, position)
+                                    ? 'sounding'
+                                    : ''
+                                }
+                                aria-label={`${chord.label} at ${timestamp(chord.start)}`}
+                              >
+                                {chord.label}
+                              </button>
+                            ))}
+                          </>
                         ) : row.notes.length ? (
                           row.notes.map((note, n) => (
                             <button

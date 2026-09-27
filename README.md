@@ -24,14 +24,18 @@ starts on its own: the server fetches the audio, a browser worker extracts
 chroma and recognizes the chords, and the pasted sheet is aligned to the
 recording. No audio files or manual downloads are needed.
 
-**Chord sheet** is the play-along view. It shows your paste exactly as written,
-sections included. Press play and the sounding chord lights up, the next chord
-change is hinted, the sheet scrolls to keep the lit chord in view, and clicking
-any chord seeks the video. The arrow keys and space step through by hand.
-**Chords from this video** beside the player shows the sync status and, folded
-one tap away, a timeline of the chords recognized in the recording (tap one to
-seek). With a YouTube link and no sheet, the chord card follows the chords
-heard in the recording instead, with a diagram and the chord coming up next.
+Across the top of the player, the chord to play now is shown large with its
+diagram, and the chords to come slide in beside it as blocks as wide as they
+ring; a chord repeated on the next line is one long block, since you keep
+holding it. **Chord sheet** shows your paste exactly as written, sections
+included. Press play and only the sounding chord lights up, its line is
+banded, the sheet scrolls to keep it in view, and clicking any chord seeks the
+video. The arrow keys and space step through by hand. Play, seek, speed, and
+the mic follow sit in a bar pinned to the bottom of the screen. **Chords from
+this video** beside the sheet shows the sync status and, folded one tap away, a
+timeline of the chords recognized in the recording (tap one to seek). With a
+YouTube link and no sheet, the top of the player follows the chords heard in
+the recording instead.
 When the recording sits in a different key from your sheet, it
 says by how many semitones and suggests a capo fret or a transposition; the
 sheet still follows. A sheet that covers only part of the song (a verse to
@@ -44,9 +48,11 @@ A manual timing map survives later automatic analysis.
 
 **Lyrics & notes** is the secondary view. It looks for video captions, then
 tries LRCLIB when exact track, artist, and duration metadata match, and places
-the chords sounding during each line beneath it (single-note estimates appear
-only when no chords were recognized). Playback highlights the current line;
-click a line or a chord to seek. Video captions may include speech or
+each chord change beneath the line it is struck in (single-note estimates
+appear only when no chords were recognized). A chord still ringing from the
+line before is marked "held" rather than listed as a new chord. Playback
+highlights the current line and only its sounding chord; click a line or a
+chord to seek. Video captions may include speech or
 imperfect automatic words, so the source is labeled. If captions are missing
 or blocked, **Paste lyrics** accepts plain text or LRC timestamps. Plain text
 stays untimed until you mark each line against the video; it is never

@@ -1,5 +1,5 @@
 import type { DetectedNote } from '../audio/songAnalysisTypes'
-import type { TimedChord } from './songSync'
+import { chordRuns, type TimedChord } from './songSync'
 
 export interface LyricCue {
   start: number
@@ -95,31 +95,42 @@ export function parseLyrics(
 }
 
 export interface LyricRow extends LyricCue {
-  /** Chords sounding during the line; empty when the song has none. */
+  /** Chords struck during the line; empty when the song has none. */
   chords: TimedChord[]
+  /** A chord still ringing from before the line, to keep holding. */
+  held: TimedChord | null
   /** Single-note estimates, used only when no chords were found at all. */
   notes: DetectedNote[]
   instrumental: boolean
 }
 
+/** A strum this close before a line's first word leads into that line. */
+const LEAD_IN = 0.35
+
 /**
- * Chords belong to every line they sound through, so a chord held across a
- * line break appears in both. A brief spill-over from boundary jitter (under
- * 0.2 s) is ignored so lines don't pick up their neighbour's last chord.
+ * Each chord change is listed once, under the line it is struck in; a strum
+ * just before the words counts for the line it leads into. Repeats of one
+ * chord are merged first. A line that opens while an earlier chord still
+ * rings gets it as `held` (keep holding), never as a new chord to play.
  */
 export function chordsForLyrics(
   cues: readonly LyricCue[],
   chords: readonly TimedChord[],
-): TimedChord[][] {
-  return cues.map((cue) =>
-    chords.filter((chord) => {
-      const overlap =
-        Math.min(chord.end, cue.end) - Math.max(chord.start, cue.start)
-      return (
-        overlap > 0.2 || (chord.start >= cue.start && chord.start < cue.end)
-      )
-    }),
-  )
+): Pick<LyricRow, 'chords' | 'held'>[] {
+  const runs = chordRuns(chords)
+  return cues.map((cue, i) => {
+    const next = cues[i + 1]
+    const from = cue.start - LEAD_IN
+    const until =
+      next && next.start - cue.end < LEAD_IN ? next.start - LEAD_IN : cue.end
+    return {
+      chords: runs.filter((run) => run.start >= from && run.start < until),
+      // Ringing under 0.2 s into the line is boundary jitter, not a hold.
+      held:
+        runs.find((run) => run.start < from && run.end > cue.start + 0.2) ??
+        null,
+    }
+  })
 }
 
 function timingMarkup(text: string): string {
@@ -167,12 +178,19 @@ export function lyricRows(
     end,
     text: 'Instrumental / no lyrics',
     chords: [],
+    held: null,
     notes: [],
     instrumental: true,
   })
   for (const cue of cues) {
     if (cue.start > cursor) rows.push(gap(cursor, cue.start))
-    rows.push({ ...cue, chords: [], notes: [], instrumental: false })
+    rows.push({
+      ...cue,
+      chords: [],
+      held: null,
+      notes: [],
+      instrumental: false,
+    })
     cursor = cue.end
   }
   if (cursor < duration) rows.push(gap(cursor, duration))
@@ -181,8 +199,11 @@ export function lyricRows(
     ? rows.map(() => [])
     : notesForLyrics(rows, notes)
   return rows
-    .map((row, i) => ({ ...row, chords: chordGroups[i], notes: noteGroups[i] }))
-    .filter((row) => !row.instrumental || row.chords.length || row.notes.length)
+    .map((row, i) => ({ ...row, ...chordGroups[i], notes: noteGroups[i] }))
+    .filter(
+      (row) =>
+        !row.instrumental || row.chords.length || row.held || row.notes.length,
+    )
 }
 
 /** Reject malformed remote timing rather than attaching words to arbitrary notes. */
