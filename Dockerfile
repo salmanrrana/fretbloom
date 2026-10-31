@@ -1,4 +1,4 @@
-FROM node:24-bookworm-slim
+FROM node:24.22.2-bookworm-slim
 
 WORKDIR /app
 
@@ -7,7 +7,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
-RUN npm ci --ignore-scripts
+RUN npm ci --ignore-scripts --engine-strict
 
 COPY . .
 RUN node scripts/setup-youtube.mjs \

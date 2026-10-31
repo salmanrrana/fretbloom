@@ -6,7 +6,7 @@ FretBloom analyzes public YouTube audio through a small same-origin Node server.
 
 Requirements:
 
-- Node.js 24 or newer
+- Node.js 24.22.2 (see `.nvmrc`; npm accepts `^24.22.2`)
 - Python 3 with `venv`
 - `ffmpeg` on `PATH`
 

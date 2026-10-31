@@ -14,6 +14,13 @@ in Postgres, not in the browser. A database-backed server always requires a
 password of at least 20 characters; the production entrypoint also requires
 `DATABASE_URL`.
 
+The Dockerfile pins Node to `24.22.2-bookworm-slim` for both build and runtime,
+matching the local `.nvmrc`. The server runs TypeScript directly with
+`node server/index.ts`; no extra loader or TypeScript compilation step is
+needed at startup. Keep `.nvmrc`, the Docker image, and the Node engine range
+in `package.json` and `package-lock.json` aligned when updating Node. Railway
+must build this Dockerfile so that Python, FFmpeg, and yt-dlp are included too.
+
 The login prompt uses username `salmanrrana` and the configured
 `FRETBLOOM_ACCESS_PASSWORD`. Use a unique random password, keep it in a password
 manager, and share it with nobody. Basic authentication has no separate logout

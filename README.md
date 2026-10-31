@@ -104,9 +104,13 @@ remain playable.
 
 ## Run locally
 
-Requires Node 24+, Python 3 with pip, and FFmpeg on PATH (or `FFMPEG_PATH`).
+Use Node 24.22.2, matching `.nvmrc` and the Docker image. Python 3 with pip
+and FFmpeg on PATH (or `FFMPEG_PATH`) are also required. npm rejects Node
+versions outside the supported `^24.22.2` range.
 
 ```bash
+nvm install          # if you use nvm; reads .nvmrc
+nvm use
 npm install
 npm run setup:youtube # installs pinned yt-dlp in ignored .tools/, not globally
 npm run dev          # frontend + YouTube API together
