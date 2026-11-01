@@ -2755,3 +2755,82 @@ textarea:focus-visible {
     display: none;
   }
 }
+
+/* Analysis and upload controls use the Songbook's existing paper and ink. */
+.analysis-upload {
+  display: grid;
+  gap: 0.5rem;
+  margin-block: 1rem 1.5rem;
+  max-width: 65ch;
+}
+.analysis-upload input[type='file'] {
+  max-width: 100%;
+  color: var(--cream);
+}
+.audio-analysis {
+  min-width: 0;
+}
+.analysis-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-block: 1rem;
+}
+.analysis-options label {
+  display: grid;
+  gap: 0.35rem;
+  flex: 1 1 8rem;
+}
+.analysis-options input,
+.analysis-options select {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem;
+  color: var(--cream);
+  background: var(--loam);
+  border: 1px solid var(--sage);
+  border-radius: 6px;
+  font: inherit;
+}
+.audio-analysis button:focus-visible,
+.analysis-options :focus-visible,
+.analysis-upload input:focus-visible {
+  outline: 2px solid var(--ember);
+  outline-offset: 3px;
+}
+.audio-analysis button:disabled,
+.analysis-options :disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.analysis-stream {
+  margin-block: 1rem;
+}
+.analysis-stream summary {
+  cursor: pointer;
+  padding-block: 0.5rem;
+}
+.analysis-stream ol {
+  max-height: 22rem;
+  overflow: auto;
+  padding-left: 1.5rem;
+  font-variant-numeric: tabular-nums;
+}
+.analysis-stream li {
+  margin-block: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.analysis-stream li[aria-current='time'] {
+  color: var(--ember);
+}
+.analysis-stream button {
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.audio-analysis .recording-help {
+  max-width: 70ch;
+}
+.audio-analysis .recording-now {
+  overflow-wrap: anywhere;
+}

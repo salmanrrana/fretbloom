@@ -11,3 +11,22 @@ node_modules
 **/.netrc
 **/*.pem
 **/*.key
+target
+validation
+docs
+test-results
+playwright-report
+**/*.f32le
+**/*.wav
+**/*.mp3
+**/*.flac
+**/*.mp4
+**/*.webm
+.impeccable
+
+**/*.test.ts
+**/*.test.tsx
+
+# The WASM source manifest includes these tests. They enter build stages only.
+!src/audio/live/**/*.test.ts
+!src/audio/live/**/*.test.tsx

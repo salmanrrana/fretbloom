@@ -237,3 +237,34 @@ describe('standalone server', () => {
     ).toBe(409)
   })
 })
+
+describe('analysis access boundary', () => {
+  it('authenticates before accepting an upload and rejects cross-site analysis', async () => {
+    const base = await startServer({
+      accessPassword: 'a-long-test-password-over-20-chars',
+    })
+    const path =
+      '/api/analysis/v1/jobs/38d37608-7f04-48d8-a0a2-6eb6e25237ad/media'
+    const unauthorized = await fetch(base + path, {
+      method: 'PUT',
+      body: 'small disposable upload',
+    })
+    expect(unauthorized.status).toBe(401)
+    const crossSite = await fetch(base + path, {
+      method: 'PUT',
+      headers: { 'Sec-Fetch-Site': 'cross-site' },
+      body: 'small disposable upload',
+    })
+    expect(crossSite.status).toBe(403)
+  })
+  it('routes analysis errors to JSON rather than the frontend shell', async () => {
+    const base = await startServer()
+    const response = await fetch(
+      `${base}/api/analysis/v1/jobs/not-a-uuid/audio`,
+    )
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({
+      error: { code: 'INVALID_REQUEST' },
+    })
+  })
+})

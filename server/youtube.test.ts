@@ -422,6 +422,39 @@ describe('createYouTubeMiddleware', () => {
 })
 
 describe('runCommand', () => {
+  it('keeps server credentials and runtime hooks out of media subprocesses', async () => {
+    const scratch = await createTempRoot()
+    const privateNames = [
+      'DATABASE_URL',
+      'FRETBLOOM_ACCESS_PASSWORD',
+      'FRETBLOOM_TEST_OTHER_SECRET',
+      'NODE_OPTIONS',
+      'PYTHONPATH',
+    ]
+    for (const name of privateNames) vi.stubEnv(name, 'test-only-private-value')
+    try {
+      const result = await runCommand(
+        process.execPath,
+        [
+          '-e',
+          `console.log(JSON.stringify({ privateAbsent: ${JSON.stringify(privateNames)}.every(name => process.env[name] === undefined), pathPresent: Boolean(process.env.PATH), home: process.env.HOME, temp: process.env.TMPDIR, locale: process.env.LC_ALL }))`,
+        ],
+        { cwd: scratch, signal: new AbortController().signal },
+      )
+      expect(result.exitCode).toBe(0)
+      const observed: unknown = JSON.parse(result.stdout)
+      expect(observed).toEqual({
+        privateAbsent: true,
+        pathPresent: Boolean(process.env.PATH),
+        home: scratch,
+        temp: scratch,
+        locale: 'C.UTF-8',
+      })
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
   it.skipIf(process.platform === 'win32')(
     'kills descendant processes when an operation is aborted',
     async () => {

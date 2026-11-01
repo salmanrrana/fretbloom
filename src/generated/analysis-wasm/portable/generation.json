@@ -1,0 +1,232 @@
+{
+  "metadata": {
+    "rawSha256": "4e8d5b329269b59f853962982a4cd73fd0ca3334497716be6ad531632b0d5870",
+    "numericSha256": "c170d7408449565a8e4df9d01e00c9f33d77bfdf1ce0220cdd4c779eafce56a8",
+    "removed": 1,
+    "nonCustomSections": [
+      [
+        1,
+        "0148b1edd578e1fc0384684135cb11afa890cafe9727eee225a5ebaf23c64c1b"
+      ],
+      [
+        2,
+        "b80a1c8fd3ecb18d0c1e8b08ecf98c0a2f57bfad247e9f8029e441a9df6982a4"
+      ],
+      [
+        3,
+        "be085fc166e63a9a456c82edef53a9d9e4cd0b307d19c760c984d6b988091500"
+      ],
+      [
+        4,
+        "f819595f45af0b4101a856bbed190b68225fb0e30a6b1628958721d34e0d0de4"
+      ],
+      [
+        5,
+        "46a4439de5eefe94d3e66446cb21ba7e8bc22c3d0b1c5530497566c06c6c287f"
+      ],
+      [
+        6,
+        "ade72941cdf0667f71a51b63fa87025c86bf9f9165ecda1c4bcc4d599f035e9d"
+      ],
+      [
+        7,
+        "95b65a9467b4d80536f2fb89bc0d8bddffd65aadc26dbd4370d18e9a34f556c5"
+      ],
+      [
+        9,
+        "396d02df198e8cde2db1c89de344c8cf1c30c5b1d90bd8d85293abfe7644cd58"
+      ],
+      [
+        10,
+        "0f8aa95ea3211e969ee6601a8dcaa0db190a4998461d98c36c1c26e50051b68d"
+      ],
+      [
+        11,
+        "c25f36e374fe1e579b9f7cf62f84482d62f47f173e52e3cd12df49459d155fec"
+      ]
+    ]
+  },
+  "bounds": {
+    "inputWatSha256": "582b2382317200a151f94cc42bafc62931efd9e449777cb8dd948fc2b87f9069",
+    "guardedWatSha256": "76825479eaeb763a406da8158a95c6f492a970bb9c3d2cfd9c7489e577fb43bc",
+    "dataGlobal": "$global$2",
+    "stateGlobal": "$global$1",
+    "counts": {
+      "callIndexLoads": 653,
+      "callIndexStores": 653,
+      "localLoads": 11960,
+      "localStores": 11960,
+      "cursorLocals": 1270,
+      "metadataReads": 5160,
+      "metadataWrites": 2576,
+      "cursorUpdates": 2576
+    },
+    "scheme": "per-access unsigned pre-read/pre-write address/span; private fixed host bounds"
+  },
+  "adapter": {
+    "generator": "wasm-bindgen0.2.100 numeric multivalue",
+    "jsSha256": "d96a9a8b6edc8b073faa6e0b6ea6078648405c2ef230b51ddda19e2bfab9909e",
+    "finalAbi": {
+      "imports": [
+        {
+          "module": "fretbloom_host",
+          "name": "poll",
+          "type": 22
+        },
+        {
+          "module": "wbg",
+          "name": "__wbindgen_string_new",
+          "type": 1
+        }
+      ],
+      "exports": [
+        {
+          "name": "memory",
+          "kind": 2,
+          "index": 0
+        },
+        {
+          "name": "engine_info_json",
+          "kind": 0,
+          "index": 690
+        },
+        {
+          "name": "analyze_pcm_json",
+          "kind": 0,
+          "index": 645
+        },
+        {
+          "name": "__wbindgen_free",
+          "kind": 0,
+          "index": 714
+        },
+        {
+          "name": "__wbindgen_malloc",
+          "kind": 0,
+          "index": 658
+        },
+        {
+          "name": "__wbindgen_realloc",
+          "kind": 0,
+          "index": 676
+        },
+        {
+          "name": "asyncify_start_unwind",
+          "kind": 0,
+          "index": 870
+        },
+        {
+          "name": "asyncify_stop_unwind",
+          "kind": 0,
+          "index": 871
+        },
+        {
+          "name": "asyncify_start_rewind",
+          "kind": 0,
+          "index": 872
+        },
+        {
+          "name": "asyncify_stop_rewind",
+          "kind": 0,
+          "index": 873
+        },
+        {
+          "name": "asyncify_get_state",
+          "kind": 0,
+          "index": 874
+        },
+        {
+          "name": "fretbloom_asyncify_set_bounds",
+          "kind": 0,
+          "index": 875
+        }
+      ],
+      "signatures": {
+        "engine_info_json": [
+          [],
+          [
+            127,
+            127
+          ]
+        ],
+        "analyze_pcm_json": [
+          [
+            127,
+            127,
+            127,
+            127,
+            127
+          ],
+          [
+            127,
+            127,
+            127,
+            127
+          ]
+        ],
+        "__wbindgen_free": [
+          [
+            127,
+            127,
+            127
+          ],
+          []
+        ],
+        "__wbindgen_malloc": [
+          [
+            127,
+            127
+          ],
+          [
+            127
+          ]
+        ],
+        "__wbindgen_realloc": [
+          [
+            127,
+            127,
+            127,
+            127
+          ],
+          [
+            127
+          ]
+        ],
+        "asyncify_start_unwind": [
+          [
+            127
+          ],
+          []
+        ],
+        "asyncify_stop_unwind": [
+          [],
+          []
+        ],
+        "asyncify_start_rewind": [
+          [
+            127
+          ],
+          []
+        ],
+        "asyncify_stop_rewind": [
+          [],
+          []
+        ],
+        "asyncify_get_state": [
+          [],
+          [
+            127
+          ]
+        ],
+        "fretbloom_asyncify_set_bounds": [
+          [
+            127,
+            127,
+            127
+          ],
+          []
+        ]
+      }
+    }
+  }
+}

@@ -4,11 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "npm run wasm:verify && vite",
+    "build": "npm run wasm:verify && tsc -b && vite build",
     "lint": "oxlint",
     "typecheck": "tsc -b --pretty false",
-    "test": "vitest run",
+    "test": "node --test validation/live/fixtures.test.mjs validation/wasm/control-entry.mjs && vitest run",
     "format": "prettier --write",
     "check:fast": "npm run lint && npm run typecheck && npm test",
     "check:staged": "node scripts/check-staged.mjs",
@@ -17,7 +17,13 @@
     "setup:youtube": "node scripts/setup-youtube.mjs",
     "start": "node server/index.ts",
     "test:youtube": "node e2e-youtube-sync.mjs",
-    "test:lyrics": "node e2e-lyrics.mjs"
+    "test:lyrics": "node e2e-lyrics.mjs",
+    "dev:full": "npm run wasm:verify && node scripts/start-local.mjs",
+    "start:full": "node scripts/start-production.mjs",
+    "test:rust-analysis": "node e2e-rust-analysis.mjs",
+    "wasm:bootstrap": "node scripts/wasm-bootstrap.mjs",
+    "wasm:build": "node scripts/wasm-build.mjs",
+    "wasm:verify": "node scripts/wasm-verify.mjs"
   },
   "dependencies": {
     "pg": "^8.23.0",

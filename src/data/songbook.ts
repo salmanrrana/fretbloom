@@ -1,5 +1,20 @@
+import { supportsAutomaticAlignment } from '../audio/analysisCompatibility'
+import { AUDIO_ALIGNMENT_VERSION } from '../audio/analysisAdapter'
+import {
+  array,
+  choice,
+  number,
+  object,
+  parseAnalysisResult,
+  parseHash,
+  parseSource,
+  string,
+  type AnalysisResult,
+  type Source,
+} from '../audio/analysisV1'
+import { alignmentTarget } from './chordIdentity'
 import type { SongLyrics } from './lyrics'
-import { stepMidiNotes, type ParsedStep } from './tabParser'
+import { type ParsedStep } from './tabParser'
 import type { ChordSegment, DetectedNote } from '../audio/songAnalysisTypes'
 
 export interface VideoAnalysis {
@@ -20,6 +35,49 @@ export interface VideoAnalysis {
   transpose: number
 }
 
+export interface SavedAudioAnalysis {
+  schemaVersion: 1
+  source: Source
+  pcmSha256: string
+  analysis: AnalysisResult
+  sequenceKey: string
+  alignment: {
+    times: number[] | null
+    endTime: number | null
+    transpose: number
+    reason: string | null
+  }
+}
+
+export function parseSavedAudioAnalysis(value: unknown): SavedAudioAnalysis {
+  const v = object(value),
+    a = object(v.alignment)
+  const analysis = parseAnalysisResult(v.analysis)
+  const times =
+    a.times === null
+      ? null
+      : array(a.times, 600, (v) => number(v, 0, analysis.duration))
+  if (times?.some((t, i) => i > 0 && t <= times[i - 1]))
+    throw new Error('Invalid saved timing order.')
+  const endTime =
+    a.endTime === null ? null : number(a.endTime, 0, analysis.duration)
+  if (times?.length && (endTime === null || endTime <= times[times.length - 1]))
+    throw new Error('Invalid saved section end.')
+  return {
+    schemaVersion: choice(v.schemaVersion, [1]),
+    source: parseSource(v.source),
+    pcmSha256: parseHash(v.pcmSha256),
+    analysis,
+    sequenceKey: string(v.sequenceKey, 200_000, 0),
+    alignment: {
+      times,
+      endTime,
+      transpose: number(a.transpose, -5, 6, true),
+      reason: a.reason === null ? null : string(a.reason, 2000, 0),
+    },
+  }
+}
+
 /** A user-saved song: pasted tab, parsed chords, optional YouTube link. */
 export interface SavedSong {
   id: string
@@ -38,18 +96,24 @@ export interface SavedSong {
   syncTimes?: number[]
   syncSource?: 'manual' | 'automatic'
   videoAnalysis?: VideoAnalysis
+  audioAnalysis?: SavedAudioAnalysis
+  uploadSource?: { name: string; byteLength: number; pcmSha256: string }
   lyrics?: SongLyrics
 }
 
 const KEY = 'fretbloom.songbook.v1'
 const PENDING_KEY = 'fretbloom.songbook.pending.v1'
-export const VIDEO_ANALYSIS_VERSION = 3
+export const VIDEO_ANALYSIS_VERSION = 4
 
 /** The chord sequence a saved automatic analysis was aligned against. */
 export function analysisSequenceKey(steps: ParsedStep[]): string {
-  return JSON.stringify(
-    steps.map((step) => [step.kind ?? 'chord', stepMidiNotes(step)]),
-  )
+  return JSON.stringify([
+    AUDIO_ALIGNMENT_VERSION,
+    steps.map((step) => {
+      const target = alignmentTarget(step)
+      return [target.kind, target.midis, target.label]
+    }),
+  ])
 }
 
 export type PendingSongChange =
@@ -61,6 +125,30 @@ export type PendingSongChange =
  * timing goes with them; a user's manual timing survives.
  */
 function withCurrentAnalysis(song: SavedSong): SavedSong {
+  if (song.audioAnalysis) {
+    try {
+      const rich = parseSavedAudioAnalysis(song.audioAnalysis)
+      const sourceFits =
+        rich.source.kind === 'youtube'
+          ? rich.source.videoId === song.youtubeId
+          : song.youtubeId === null &&
+            song.uploadSource?.pcmSha256 === rich.pcmSha256
+      const current =
+        sourceFits &&
+        supportsAutomaticAlignment(rich.analysis.engineVersion) &&
+        rich.sequenceKey === analysisSequenceKey(song.steps)
+      if (!current && song.syncSource === 'automatic') {
+        const { syncTimes: _times, syncSource: _source, ...rest } = song
+        return { ...rest, audioAnalysis: rich }
+      }
+      return { ...song, audioAnalysis: rich }
+    } catch {
+      const { audioAnalysis: _invalid, syncTimes, syncSource, ...rest } = song
+      return syncSource === 'automatic'
+        ? rest
+        : { ...rest, syncTimes, syncSource }
+    }
+  }
   const analysis = song.videoAnalysis
   if (
     !analysis ||
@@ -164,13 +252,18 @@ export async function saveRemoteSong(
   song: SavedSong,
   expectedRevision: number,
 ): Promise<void> {
+  const body = JSON.stringify(song)
+  if (new TextEncoder().encode(body).length > 2 * 1024 * 1024)
+    throw new Error(
+      'This song is too large to save. Download the detailed analysis instead.',
+    )
   const response = await fetch(`/api/songs/${encodeURIComponent(song.id)}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
       'X-Song-Revision': String(expectedRevision),
     },
-    body: JSON.stringify(song),
+    body,
   })
   if (response.status === 409) throw new SongConflictError()
   if (!response.ok) throw new Error('Could not save song to the database')

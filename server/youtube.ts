@@ -116,14 +116,35 @@ function appendCaptured(current: string, chunk: Buffer): string {
   return current + chunk.subarray(0, remaining).toString('utf8')
 }
 
+// Media tools need executable lookup and scratch space, not server credentials
+// or inherited Node/Python startup hooks. Descendants inherit this same boundary.
+function mediaCommandEnvironment(cwd: string | undefined): NodeJS.ProcessEnv {
+  const scratch = cwd ?? tmpdir()
+  const environment: NodeJS.ProcessEnv = {
+    HOME: scratch,
+    TMPDIR: scratch,
+    TMP: scratch,
+    TEMP: scratch,
+    LANG: 'C.UTF-8',
+    LC_ALL: 'C.UTF-8',
+  }
+  for (const name of ['PATH', 'SystemRoot', 'WINDIR']) {
+    const value = process.env[name]
+    if (value !== undefined) environment[name] = value
+  }
+  return environment
+}
+
 export const runCommand: CommandRunner = (command, args, options) =>
   new Promise((resolveCommand, rejectCommand) => {
     let stdout = ''
     let stderr = ''
     let settled = false
+    const env = mediaCommandEnvironment(options.cwd)
 
     const child = spawn(command, args, {
       cwd: options.cwd,
+      env,
       detached: process.platform !== 'win32',
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
@@ -133,6 +154,7 @@ export const runCommand: CommandRunner = (command, args, options) =>
       if (!child.pid) return
       if (process.platform === 'win32') {
         spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
+          env,
           stdio: 'ignore',
           windowsHide: true,
         }).unref()

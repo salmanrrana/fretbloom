@@ -7,7 +7,10 @@ import {
   ccrRainTargets,
 } from './fixtures/ccrRain'
 import { alignSong } from './songAlignment'
-import { analyzeSamples } from './songAnalysis'
+import {
+  melodyAlignmentFrames,
+  triadAlignmentFrames,
+} from './fixtures/alignmentFrames'
 import type { SongAnalysis, SongFrame, SyncTarget } from './songAnalysisTypes'
 
 const HOP = 0.1
@@ -199,75 +202,36 @@ describe('alignSong', () => {
     expect(aligned.times).toEqual([0.3, 0.7, 1.1])
   })
 
-  test('aligns features produced by the real sample analyzer', () => {
-    const sampleRate = 12_000
-    const tone = (frequency: number, seconds: number): Float32Array =>
-      Float32Array.from(
-        { length: sampleRate * seconds },
-        (_, index) =>
-          0.45 * Math.sin((2 * Math.PI * frequency * index) / sampleRate),
-      )
-    const join = (...parts: Float32Array[]): Float32Array => {
-      const joined = new Float32Array(
-        parts.reduce((length, part) => length + part.length, 0),
-      )
-      let offset = 0
-      for (const part of parts) {
-        joined.set(part, offset)
-        offset += part.length
-      }
-      return joined
-    }
-    const quiet = new Float32Array(sampleRate * 0.3)
-    const extracted = analyzeSamples(
-      join(
-        quiet,
-        tone(440, 0.7),
-        tone(523.251, 0.7),
-        tone(659.255, 0.7),
-        quiet,
-      ),
-      sampleRate,
-    )
-
-    const aligned = alignSong(extracted, [note(69), note(72), note(76)])
+  test('aligns deterministic melody frames at the supplied change times', () => {
+    const aligned = alignSong(melodyAlignmentFrames(), [
+      note(69),
+      note(72),
+      note(76),
+    ])
 
     expect(aligned.reliable).toBe(true)
-    // The 341ms FFT window sees a note shortly before its waveform onset.
+    expect(aligned.transpose).toBe(0)
+    expect(aligned.times).toEqual([0.3, 1, 1.7])
+    expect(aligned.endTime).toBeCloseTo(2.4)
     expect(aligned.times[0]).toBeGreaterThan(0.1)
     expect(aligned.times[0]).toBeLessThan(0.6)
     expect(aligned.times[1]).toBeGreaterThan(0.8)
     expect(aligned.times[1]).toBeLessThan(1.3)
     expect(aligned.times[2]).toBeGreaterThan(1.5)
     expect(aligned.times[2]).toBeLessThan(2)
+  })
 
-    const harmony = (midis: number[], seconds: number): Float32Array => {
-      const voices = midis.map((midi) =>
-        tone(440 * 2 ** ((midi - 69) / 12), seconds),
-      )
-      return Float32Array.from(
-        voices[0],
-        (_, index) =>
-          voices.reduce((sum, voice) => sum + voice[index], 0) / voices.length,
-      )
-    }
-    const extractedChords = analyzeSamples(
-      join(
-        quiet,
-        harmony([60, 64, 67], 0.9),
-        harmony([55, 59, 62], 0.9),
-        harmony([57, 60, 64], 0.9),
-        quiet,
-      ),
-      sampleRate,
-    )
-    const alignedChords = alignSong(extractedChords, [
+  test('aligns deterministic triad frames at the supplied change times', () => {
+    const alignedChords = alignSong(triadAlignmentFrames(), [
       chord(60, 64, 67),
       chord(55, 59, 62),
       chord(57, 60, 64),
     ])
 
     expect(alignedChords.reliable).toBe(true)
+    expect(alignedChords.transpose).toBe(0)
+    expect(alignedChords.times).toEqual([0.3, 1.2, 2.1])
+    expect(alignedChords.endTime).toBeCloseTo(3)
     expect(alignedChords.times[0]).toBeLessThan(0.6)
     expect(alignedChords.times[1]).toBeGreaterThan(0.9)
     expect(alignedChords.times[2]).toBeGreaterThan(1.8)

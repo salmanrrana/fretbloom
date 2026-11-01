@@ -1,6 +1,10 @@
+import { DEFAULT_OPTIONS } from '../audio/analysisV1'
+import { parseTab } from './tabParser'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import {
+  analysisSequenceKey,
   applyPendingSongChange,
+  saveSongbook,
   deleteRemoteSong,
   loadPendingSongChanges,
   loadRemoteSongbook,
@@ -219,4 +223,205 @@ test('a delete already committed before its response was lost drains on retry', 
       expectedRevision: 2,
     }),
   ).resolves.toBeUndefined()
+})
+
+test('rich analysis invalidates stale automatic timing but preserves manual timing and history', async () => {
+  const { DEFAULT_OPTIONS } = await import('../audio/analysisV1')
+  const { analysisSequenceKey } = await import('./songbook')
+  const rich = {
+    schemaVersion: 1,
+    source: {
+      kind: 'upload',
+      name: 'practice.wav',
+      byteLength: 44,
+      contentType: 'audio/wav',
+    },
+    pcmSha256: 'a'.repeat(64),
+    sequenceKey: analysisSequenceKey([]),
+    analysis: {
+      schemaVersion: 1,
+      engineVersion: 'earlier-engine',
+      options: DEFAULT_OPTIONS,
+      duration: 1,
+      sampleRateHz: 24000,
+      timingResolutionSeconds: 0.02,
+      tuning: { referenceHz: 440, estimatedOffsetCents: null },
+      harmony: [],
+      monophonicNotes: [],
+      polyphonicNotes: [],
+      warnings: [],
+    },
+    alignment: { times: null, endTime: null, transpose: 0, reason: null },
+  }
+  store.set(
+    'fretbloom.songbook.v1',
+    JSON.stringify([
+      {
+        ...saved({ youtubeId: null, syncTimes: [0], syncSource: 'automatic' }),
+        audioAnalysis: rich,
+        uploadSource: {
+          name: 'practice.wav',
+          byteLength: 44,
+          pcmSha256: rich.pcmSha256,
+        },
+      },
+      {
+        ...saved({ youtubeId: null, syncTimes: [0], syncSource: 'manual' }),
+        audioAnalysis: rich,
+      },
+    ]),
+  )
+  const [automatic, manual] = loadSongbook()
+  expect(automatic.audioAnalysis?.analysis.engineVersion).toBe('earlier-engine')
+  expect(automatic.syncTimes).toBeUndefined()
+  expect(manual.syncTimes).toEqual([0])
+  expect(manual.syncSource).toBe('manual')
+})
+
+test('invalid rich wire data cannot restore automatic timing or enter the song journal', async () => {
+  const { parseSavedAudioAnalysis } = await import('./songbook')
+  expect(() => parseSavedAudioAnalysis({ schemaVersion: 2 })).toThrow()
+  store.set(
+    'fretbloom.songbook.v1',
+    JSON.stringify([
+      {
+        ...saved({ syncSource: 'automatic', syncTimes: [0] }),
+        audioAnalysis: { schemaVersion: 2 },
+      },
+    ]),
+  )
+  expect(loadSongbook()[0].audioAnalysis).toBeUndefined()
+  expect(loadSongbook()[0].syncTimes).toBeUndefined()
+  const fetcher = vi.fn()
+  vi.stubGlobal('fetch', fetcher)
+  await expect(
+    saveRemoteSong(saved({ title: 'x'.repeat(2 * 1024 * 1024) }), 0),
+  ).rejects.toThrow('too large')
+  expect(fetcher).not.toHaveBeenCalled()
+})
+
+/** A saved upload with an associated sheet, decoded PCM and automatic timing. */
+function richTimedSong(engineVersion: string): SavedSong {
+  const steps = parseTab('C G').steps
+  const uploadSource = {
+    name: 'practice.wav',
+    byteLength: 44,
+    pcmSha256: 'a'.repeat(64),
+  }
+  return saved({
+    youtubeId: null,
+    steps,
+    uploadSource,
+    syncTimes: [1, 5],
+    syncSource: 'automatic',
+    audioAnalysis: {
+      schemaVersion: 1,
+      source: {
+        kind: 'upload',
+        name: uploadSource.name,
+        byteLength: 44,
+        contentType: 'audio/wav',
+      },
+      pcmSha256: uploadSource.pcmSha256,
+      sequenceKey: analysisSequenceKey(steps),
+      analysis: {
+        schemaVersion: 1,
+        engineVersion,
+        options: DEFAULT_OPTIONS,
+        duration: 10,
+        sampleRateHz: 24000,
+        timingResolutionSeconds: 0.02,
+        tuning: { referenceHz: 440, estimatedOffsetCents: null },
+        harmony: [],
+        monophonicNotes: [],
+        polyphonicNotes: [],
+        warnings: [],
+      },
+      alignment: { times: [1, 5], endTime: 9, transpose: 0, reason: null },
+    },
+  })
+}
+
+test.each(['rust-dsp-3.1', 'rust-dsp-1'])(
+  '%s automatic timing survives local and remote reload without relabeling',
+  async (engineVersion) => {
+    const upload = richTimedSong(engineVersion)
+    const rich = upload.audioAnalysis!
+    const songs = [
+      upload,
+      {
+        ...upload,
+        youtubeId: 'testaudio01',
+        audioAnalysis: {
+          ...rich,
+          source: { kind: 'youtube', videoId: 'testaudio01' },
+        },
+      } satisfies SavedSong,
+    ]
+    saveSongbook(songs)
+    vi.stubGlobal('fetch', async () => Response.json(songs))
+    for (const restored of [loadSongbook(), await loadRemoteSongbook()]) {
+      expect(restored).toHaveLength(2)
+      for (const song of restored ?? []) {
+        expect(song.syncTimes).toEqual([1, 5])
+        expect(song.syncSource).toBe('automatic')
+        expect(song.audioAnalysis?.analysis.engineVersion).toBe(engineVersion)
+      }
+    }
+  },
+)
+
+test('engine support does not bypass sheet, alignment version, source or PCM association', async () => {
+  const base = richTimedSong('rust-dsp-3.1')
+  const rich = base.audioAnalysis!
+  const staleSongs = [
+    { ...richTimedSong('rust-dsp-999'), id: 'unsupported-engine' },
+    { ...base, id: 'changed-sheet', steps: parseTab('D E').steps },
+    {
+      ...base,
+      id: 'old-alignment',
+      audioAnalysis: {
+        ...rich,
+        sequenceKey: rich.sequenceKey.replace('[1,', '[0,'),
+      },
+    },
+    {
+      ...base,
+      id: 'changed-pcm',
+      uploadSource: { ...base.uploadSource!, pcmSha256: 'b'.repeat(64) },
+    },
+    { ...base, id: 'missing-pcm-association', uploadSource: undefined },
+    {
+      ...base,
+      id: 'changed-youtube',
+      youtubeId: 'testaudio02',
+      audioAnalysis: {
+        ...rich,
+        source: { kind: 'youtube', videoId: 'testaudio01' },
+      },
+    },
+  ] satisfies SavedSong[]
+  const songs = [
+    ...staleSongs,
+    ...staleSongs.map((song) => ({
+      ...song,
+      id: `${song.id}-manual`,
+      syncSource: 'manual' as const,
+    })),
+  ]
+  saveSongbook(songs)
+  vi.stubGlobal('fetch', async () => Response.json(songs))
+  for (const restored of [loadSongbook(), await loadRemoteSongbook()]) {
+    expect(restored).toHaveLength(songs.length)
+    for (const song of restored ?? []) {
+      expect(song.audioAnalysis, song.id).toBeDefined()
+      if (song.id.endsWith('-manual')) {
+        expect(song.syncTimes, song.id).toEqual([1, 5])
+        expect(song.syncSource, song.id).toBe('manual')
+      } else {
+        expect(song.syncTimes, song.id).toBeUndefined()
+        expect(song.syncSource, song.id).toBeUndefined()
+      }
+    }
+  }
 })

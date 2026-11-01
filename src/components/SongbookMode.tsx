@@ -164,6 +164,12 @@ export function SongbookMode({ onGlow }: Props) {
   const [title, setTitle] = useState('')
   const [rawTab, setRawTab] = useState('')
   const [videoUrl, setVideoUrl] = useState('')
+  const [uploadFile, setUploadFile] = useState<File | undefined>()
+  // An editor upload belongs to one player session, never to a later reopening.
+  const [initialUpload, setInitialUpload] = useState<{
+    id: string
+    file: File
+  } | null>(null)
 
   const preview = useMemo(
     () => (rawTab.trim() ? parseTab(rawTab) : null),
@@ -294,6 +300,8 @@ export function SongbookMode({ onGlow }: Props) {
 
   /** Open the bench empty for a new song, or loaded with a saved one. */
   const openBench = (song: SavedSong | null) => {
+    setInitialUpload(null)
+    setUploadFile(undefined)
     setTitle(song?.title ?? '')
     setRawTab(song?.rawTab ?? '')
     setVideoUrl(
@@ -305,7 +313,13 @@ export function SongbookMode({ onGlow }: Props) {
   }
 
   const save = () => {
-    if (!previewVideo && !preview?.steps.length) return
+    if (
+      !previewVideo &&
+      !preview?.steps.length &&
+      !uploadFile &&
+      !editing?.uploadSource
+    )
+      return
     const editorError =
       title.trim().length > MAX_TITLE_LENGTH
         ? `Song titles must be ${MAX_TITLE_LENGTH} characters or fewer.`
@@ -328,8 +342,15 @@ export function SongbookMode({ onGlow }: Props) {
     }
     if (currentEditing) {
       // Same id and list position; the sync map survives only if it still fits.
-      const { syncTimes, syncSource, videoAnalysis, lyrics, ...rest } =
-        currentEditing
+      const {
+        syncTimes,
+        syncSource,
+        videoAnalysis,
+        audioAnalysis,
+        uploadSource,
+        lyrics,
+        ...rest
+      } = currentEditing
       const updated: SavedSong = syncStillFits(
         currentEditing,
         parsedSteps,
@@ -343,6 +364,10 @@ export function SongbookMode({ onGlow }: Props) {
             revision: (currentEditing.revision ?? 0) + 1,
           }
         : { ...rest, ...fields, revision: (currentEditing.revision ?? 0) + 1 }
+      if (audioAnalysis && currentEditing.youtubeId === previewVideo) {
+        updated.audioAnalysis = audioAnalysis
+        updated.uploadSource = uploadSource
+      }
       if (videoAnalysis?.videoId === previewVideo)
         updated.videoAnalysis = videoAnalysis
       // Restoring the original chord sequence can reuse its saved alignment.
@@ -355,13 +380,22 @@ export function SongbookMode({ onGlow }: Props) {
         updated.syncTimes = videoAnalysis.times
         updated.syncSource = 'automatic'
       }
-      if (lyrics?.videoId === previewVideo) updated.lyrics = lyrics
+      if (
+        lyrics &&
+        (lyrics.videoId === previewVideo ||
+          (previewVideo === null &&
+            currentEditing.youtubeId === null &&
+            audioAnalysis?.source.kind === 'upload' &&
+            lyrics.videoId === `upload:${audioAnalysis.pcmSha256}`))
+      )
+        updated.lyrics = lyrics
       if (
         !persist((current) =>
           current.map((song) => (song.id === updated.id ? updated : song)),
         )
       )
         return
+      setInitialUpload(uploadFile ? { id: updated.id, file: uploadFile } : null)
       setOpenId(updated.id)
     } else {
       const song: SavedSong = {
@@ -371,8 +405,10 @@ export function SongbookMode({ onGlow }: Props) {
         ...fields,
       }
       if (!persist((current) => [song, ...current])) return
+      setInitialUpload(uploadFile ? { id: song.id, file: uploadFile } : null)
       setOpenId(song.id)
     }
+    setUploadFile(undefined)
     setBench(null)
   }
 
@@ -382,6 +418,7 @@ export function SongbookMode({ onGlow }: Props) {
   }
 
   const update = (changes: Partial<Omit<SavedSong, 'id'>>) => {
+    if (changes.audioAnalysis) setInitialUpload(null)
     persist((current) => {
       const currentSong = current.find((song) => song.id === openId)
       if (!currentSong) return current
@@ -401,6 +438,7 @@ export function SongbookMode({ onGlow }: Props) {
       pending.current = []
       songsRef.current = remote
       setSongs(remote)
+      setInitialUpload(null)
       setOpenId(null)
       setBench(remote.length === 0 ? { id: null } : null)
       setSaveConflict(false)
@@ -415,7 +453,12 @@ export function SongbookMode({ onGlow }: Props) {
   const chordRun = (s: SavedSong) => {
     const symbols = s.steps.length
       ? s.steps.map((st) => st.chord.symbol)
-      : (s.videoAnalysis?.chords ?? [])
+      : (s.audioAnalysis
+          ? s.audioAnalysis.analysis.harmony.flatMap((event) =>
+              event.kind === 'chord' ? [{ label: event.primary.label }] : [],
+            )
+          : (s.videoAnalysis?.chords ?? [])
+        )
           .map((chord) => chord.label)
           .filter((label) => label !== 'N')
     const uniq = [...new Set(symbols)]
@@ -437,6 +480,7 @@ export function SongbookMode({ onGlow }: Props) {
         ? `${s.steps.length} ${s.steps.some((st) => st.kind === 'notes') ? 'notes' : 'chords'}`
         : 'no sheet',
       s.youtubeId && 'video linked',
+      s.uploadSource && 'recording attached (temporary audio)',
       s.syncTimes && 'synced',
       `pressed ${pressedOn(s.savedAt)}`,
     ]
@@ -518,7 +562,7 @@ export function SongbookMode({ onGlow }: Props) {
             <p className="press-sub">
               {editing
                 ? 'Fix the title, the tab, or the video link — the chords are re-read as you type. A recorded video sync stays as long as the chords still line up.'
-                : 'Paste a YouTube link and we’ll hear its chords. Add the song’s chord sheet (or a six-string tab) and it lights up in time with the video.'}
+                : 'Link a YouTube video or choose a recording. Add an optional chord sheet or lyrics to play along.'}
             </p>
           </header>
 
@@ -529,7 +573,10 @@ export function SongbookMode({ onGlow }: Props) {
               className="songbook-input press-input-video"
               placeholder="https://www.youtube.com/watch?v=…"
               value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
+              onChange={(e) => {
+                setVideoUrl(e.target.value)
+                if (e.target.value.trim()) setUploadFile(undefined)
+              }}
               aria-label="YouTube link"
             />
             {videoUrl.trim() && !previewVideo && (
@@ -540,6 +587,27 @@ export function SongbookMode({ onGlow }: Props) {
             )}
           </div>
 
+          <div className="analysis-upload">
+            <label htmlFor="song-upload">Or upload a recording</label>
+            <input
+              id="song-upload"
+              type="file"
+              accept="audio/*,video/mp4,video/webm,.m4a,.flac,.ogg"
+              aria-label="Upload recording"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) {
+                  setUploadFile(file)
+                  setVideoUrl('')
+                }
+              }}
+            />
+            <p className="recording-help">
+              {uploadFile ? uploadFile.name + ' · ' : ''}Sent to this server for
+              analysis after opening the song. Audio is temporary; reattach it
+              after a reload.
+            </p>
+          </div>
           <div className="press-bench">
             <textarea
               className="songbook-paste"
@@ -638,7 +706,12 @@ export function SongbookMode({ onGlow }: Props) {
                 <button
                   className="play-btn"
                   onClick={save}
-                  disabled={!previewVideo && !preview?.steps.length}
+                  disabled={
+                    !previewVideo &&
+                    !preview?.steps.length &&
+                    !uploadFile &&
+                    !editing?.uploadSource
+                  }
                 >
                   {editing
                     ? 'Save changes'
@@ -669,7 +742,13 @@ export function SongbookMode({ onGlow }: Props) {
         <SongbookPlayer
           key={open.id}
           song={open}
-          onBack={() => setOpenId(null)}
+          initialFile={
+            initialUpload?.id === open.id ? initialUpload.file : undefined
+          }
+          onBack={() => {
+            setInitialUpload(null)
+            setOpenId(null)
+          }}
           onEdit={() => openBench(open)}
           onGlow={onGlow}
           onUpdate={update}

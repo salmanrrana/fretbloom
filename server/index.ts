@@ -10,6 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createYouTubeLyricsMiddleware } from './lyrics.ts'
 import { createYouTubeCaptionsMiddleware } from './captions.ts'
 import { createYouTubeMiddleware } from './youtube.ts'
+import { createAnalysisMiddleware } from './analysisApi.ts'
 import { createOwnerAccess } from './ownerAccess.ts'
 import { serveSongApi } from './songApi.ts'
 import { createSongStore, type SongStore } from './songStore.ts'
@@ -26,6 +27,7 @@ const CONTENT_TYPES: Readonly<Record<string, string>> = {
   '.jpg': 'image/jpeg',
   '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
+  '.wasm': 'application/wasm',
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.webp': 'image/webp',
@@ -146,6 +148,7 @@ export function createFretBloomServer(
   ) {
     throw new Error('Database-backed Songbook requires the owner password')
   }
+  const analysis = createAnalysisMiddleware()
   const youtube = createYouTubeMiddleware()
   const captions = createYouTubeCaptionsMiddleware()
   const lyrics = createYouTubeLyricsMiddleware()
@@ -214,10 +217,12 @@ export function createFretBloomServer(
         (await serveSongApi(request, response, options.songStore))
       )
         return
-      youtube(request, response, () => {
-        captions(request, response, () => {
-          lyrics(request, response, () => {
-            void serveFrontend(request, response, distDirectory)
+      analysis(request, response, () => {
+        youtube(request, response, () => {
+          captions(request, response, () => {
+            lyrics(request, response, () => {
+              void serveFrontend(request, response, distDirectory)
+            })
           })
         })
       })

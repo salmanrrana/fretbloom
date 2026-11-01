@@ -94,7 +94,7 @@ export default function App() {
           {isSongbook &&
             ' YouTube audio is fetched through this site’s server.'}
           {isListen &&
-            ' Headphones help in listen mode — otherwise the app hears itself.'}
+            ' Capture music locally from a shared tab or microphone; saved sessions stay on this browser.'}
         </p>
       </div>
     </>
