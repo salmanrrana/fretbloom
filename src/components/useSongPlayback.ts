@@ -8,8 +8,27 @@ const PLAYER_GRACE_MS = 8_000
 /** Why the song audio is playing instead of the embedded video. */
 export type VideoProblem = 'blocked' | 'silent' | null
 
+export type PlaybackSource =
+  | {
+      kind: 'youtube'
+      videoId: string
+      audio: Blob | null
+      verifiedAudioRequired: boolean
+    }
+  | { kind: 'upload'; identity: string; audio: Blob | null }
+
 /** One playback clock keeps lyrics, notes and seeking together across both sources. */
-export function useSongPlayback(videoId: string | null, analyzing: boolean) {
+export function useSongPlayback(
+  source: PlaybackSource | null,
+  analyzing: boolean,
+) {
+  const videoId = source?.kind === 'youtube' ? source.videoId : null
+  const suppliedAudio = source?.audio ?? null
+  const upload = source?.kind === 'upload'
+  const verifiedAudioRequired =
+    source?.kind === 'youtube' && source.verifiedAudioRequired
+  const identity = upload ? source.identity : videoId
+  const hasSource = source !== null
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
   const video = useYouTubeClock(iframeRef, Boolean(videoId))
@@ -20,13 +39,19 @@ export function useSongPlayback(videoId: string | null, analyzing: boolean) {
   const [playing, setPlaying] = useState(false)
   const [audioError, setAudioError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
-  const useAudio = preferAudio || stalled || video.error !== null
+  const useAudio =
+    verifiedAudioRequired ||
+    upload ||
+    suppliedAudio !== null ||
+    preferAudio ||
+    stalled ||
+    video.error !== null
   const pauseVideo = video.pause
 
   useEffect(() => {
     setPreferAudio(false)
     setStalled(false)
-  }, [videoId])
+  }, [identity])
 
   // YouTube does not always report an error for a video it will not play
   // here (label uploads on local addresses, player messages eaten by an
@@ -45,7 +70,32 @@ export function useSongPlayback(videoId: string | null, analyzing: boolean) {
   }, [useAudio, pauseVideo])
 
   useEffect(() => {
-    if (!videoId || !useAudio || analyzing) return
+    if (!useAudio || analyzing || !hasSource) return
+    setAudioUrl(null)
+    setAudioError(null)
+    setAudioReady(false)
+    setPlaying(false)
+    if (suppliedAudio) {
+      const url = URL.createObjectURL(suppliedAudio)
+      setAudioUrl(url)
+      const element = audioRef.current
+      return () => {
+        element?.pause()
+        URL.revokeObjectURL(url)
+        setAudioUrl(null)
+        setAudioReady(false)
+        setPlaying(false)
+      }
+    }
+    if (upload || verifiedAudioRequired) {
+      setAudioError(
+        upload
+          ? 'Reattach your recording below to verify and restore playback.'
+          : 'Analyze this video again to verify its audio before playback.',
+      )
+      return
+    }
+    if (!videoId) return
     const controller = new AbortController()
     let objectUrl: string | null = null
     setAudioError(null)
@@ -78,7 +128,17 @@ export function useSongPlayback(videoId: string | null, analyzing: boolean) {
       setAudioReady(false)
       setPlaying(false)
     }
-  }, [videoId, useAudio, analyzing, attempt])
+  }, [
+    videoId,
+    identity,
+    useAudio,
+    analyzing,
+    attempt,
+    suppliedAudio,
+    upload,
+    verifiedAudioRequired,
+    hasSource,
+  ])
 
   const audio: VideoClock = useMemo(
     () => ({

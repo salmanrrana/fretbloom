@@ -7,6 +7,11 @@ export interface TimedChord {
   end: number
 }
 
+// Media elements may report a seek a few microseconds short of the requested
+// time. Two milliseconds covers that rounding without lighting a musical beat
+// early. Use the same adjusted instant for both ends of adjacent spans.
+export const MEDIA_TIME_TOLERANCE = 0.002
+
 /** Timing survives wording edits, but never changed notes, capo, or event order. */
 export function matchingSequence(
   before: ParsedStep[],
@@ -44,16 +49,16 @@ export function validSyncTimes(
 }
 
 /**
- * Step sounding at `time`: the last one that has started, or step 0 before
- * the first starts so the player can get ready. chordAt follows the same
- * rule, so the chord card and the "Now" readout never disagree.
+ * Step to display at `time`: the last one that has started, or step 0 before
+ * the first starts so the player can get ready. Check sounds separately before
+ * calling that displayed step "now".
  */
 export function stepAtTime(times: number[], time: number): number {
   let low = 0
   let high = times.length
   while (low < high) {
     const mid = (low + high) >>> 1
-    if (times[mid] <= time) low = mid + 1
+    if (times[mid] <= time + MEDIA_TIME_TOLERANCE) low = mid + 1
     else high = mid
   }
   return Math.max(0, low - 1)
@@ -77,20 +82,18 @@ export function sounds(
   span: { start: number; end: number },
   time: number,
 ): boolean {
-  return span.start <= time && time < span.end
+  const instant = time + MEDIA_TIME_TOLERANCE
+  return span.start <= instant && instant < span.end
 }
 
 /**
- * The chord to show as "now": the one sounding at `time`, or the first chord
- * before it starts (get ready). Recognized chords can leave gaps ("N"),
- * where there is none.
+ * The chord sounding at `time`. Recognized chords can leave gaps ("N"),
+ * where there is none; the first chord also has not begun during the intro.
  */
 export function chordAt(
   chords: readonly TimedChord[],
   time: number,
 ): TimedChord | undefined {
-  const first = chords[0]
-  if (first && time < first.start) return first
   return chords.find((chord) => sounds(chord, time))
 }
 
@@ -103,7 +106,9 @@ export function chordRuns(chords: readonly TimedChord[]): TimedChord[] {
   const runs: TimedChord[] = []
   for (const chord of chords) {
     const last = runs.at(-1)
-    if (last?.label === chord.label) last.end = Math.max(last.end, chord.end)
+    // Rust may split equal chords around silence or unresolved evidence.
+    if (last?.label === chord.label && chord.start <= last.end)
+      last.end = Math.max(last.end, chord.end)
     else runs.push({ ...chord })
   }
   return runs

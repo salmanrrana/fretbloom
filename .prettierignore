@@ -1,3 +1,7 @@
 src/audio/fixtures/*.json
 # Hand-aligned chord table; prettier would spread every shape over six lines.
 src/data/chords.ts
+# Reproducible generator output; format the generator, never its emitted bytes.
+src/generated/
+# Retained evaluation reports have recorded hashes and preserve original findings.
+docs/rust-*.md

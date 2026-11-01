@@ -1,6 +1,24 @@
+import { INITIAL_MIC_MATCH, nextMicMatch } from '../audio/micMatchState'
+import { supportsAutomaticAlignment } from '../audio/analysisCompatibility'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { parseTab, stepMidiNotes, type SheetLine } from '../data/tabParser'
-import type { SavedSong } from '../data/songbook'
+import {
+  analysisSequenceKey,
+  VIDEO_ANALYSIS_VERSION,
+  type SavedAudioAnalysis,
+  type SavedSong,
+  type VideoAnalysis,
+} from '../data/songbook'
+import { analysisProjection, sameRecording } from '../audio/analysisAdapter'
+import type { ResultEnvelope } from '../audio/analysisV1'
+import { AudioAnalysisPanel } from './AudioAnalysisPanel'
+import {
+  alignmentTarget,
+  chordPitchClasses,
+  parseChordIdentity,
+} from '../data/chordIdentity'
+import { chordMidiNotes } from '../data/chords'
+import { midiToName, midiToNameWithOctave } from '../audio/notes'
 import { engine } from '../audio/engine'
 import { chromaEnergies, chordMatchScore, detectPitch } from '../audio/pitch'
 import { useSongPlayback } from './useSongPlayback'
@@ -11,18 +29,23 @@ import { ChordDiagram } from './ChordDiagram'
 import { ChordRunway } from './ChordRunway'
 import { TabBlock } from './TabBlock'
 import { LyricsSheet } from './LyricsSheet'
+import { lyricRows, parseLyrics, type SongLyrics } from '../data/lyrics'
+import type { TimedChord } from '../data/songSync'
+import type { VideoClock } from './useYouTubeClock'
 import { YouTubeAnalysisPanel } from './YouTubeAnalysisPanel'
 import { resolveChord } from '../data/chordEngine'
 import {
   chordAt,
   chordRuns,
   sheetChords,
+  sounds,
   stepAtTime,
   validSyncTimes,
 } from '../data/songSync'
 
 interface Props {
   song: SavedSong
+  initialFile?: File
   onBack: () => void
   onEdit: () => void
   onGlow: (lit: boolean) => void
@@ -38,6 +61,7 @@ interface Props {
  */
 export function SongbookPlayer({
   song,
+  initialFile,
   onBack,
   onEdit,
   onGlow,
@@ -47,7 +71,7 @@ export function SongbookPlayer({
   // sections) is available — older saves only stored the chord steps.
   const parsed = useMemo(() => parseTab(song.rawTab), [song.rawTab])
   const steps = parsed.steps
-  const [idx, setIdx] = useState(0)
+  const [practiceIdx, setIdx] = useState(0)
   const [listening, setListening] = useState(false)
   const [micError, setMicError] = useState<string | null>(null)
   const [match, setMatch] = useState(0)
@@ -58,10 +82,42 @@ export function SongbookPlayer({
   // The pasted sheet is the play-along; lyrics & chords is the secondary read.
   const [sheetView, setSheetView] = useState<'sheet' | 'lyrics'>('sheet')
   const [timingLyrics, setTimingLyrics] = useState(false)
+  const [sessionAnalysis, setSessionAnalysis] = useState<
+    SavedAudioAnalysis | undefined
+  >()
+  const [sessionAudio, setSessionAudio] = useState<{
+    hash: string
+    audio: Blob
+  } | null>(null)
+  const [analysisSaveError, setAnalysisSaveError] = useState<string | null>(
+    null,
+  )
+  const rich = sessionAnalysis ?? song.audioAnalysis
+  const sourceFits =
+    rich?.source.kind === 'youtube'
+      ? rich.source.videoId === song.youtubeId
+      : rich?.source.kind === 'upload' && song.youtubeId === null
+  const richProjection = useMemo(
+    (): VideoAnalysis | undefined =>
+      rich && sourceFits
+        ? {
+            ...analysisProjection(rich.analysis),
+            version: VIDEO_ANALYSIS_VERSION,
+            videoId: rich.source.kind === 'youtube' ? rich.source.videoId : '',
+            sequenceKey: rich.sequenceKey,
+            syncReason: rich.alignment.reason,
+            times: rich.alignment.times,
+            endTime: rich.alignment.endTime,
+            transpose: rich.alignment.transpose,
+          }
+        : undefined,
+    [rich, sourceFits],
+  )
   const analysis =
-    song.videoAnalysis?.videoId === song.youtubeId
+    richProjection ??
+    (song.videoAnalysis?.videoId === song.youtubeId
       ? song.videoAnalysis
-      : undefined
+      : undefined)
   const suggestedLyrics = parsed.lines
     .filter((line) => line.kind === 'lyric' || line.kind === 'chords')
     .map((line) =>
@@ -76,42 +132,202 @@ export function SongbookPlayer({
   const micRequest = useRef(0)
 
   // --- video sync ---
-  const playback = useSongPlayback(song.youtubeId, analyzing)
+  const playbackSource = song.youtubeId
+    ? {
+        kind: 'youtube' as const,
+        videoId: song.youtubeId,
+        audio: sessionAudio?.audio ?? null,
+        verifiedAudioRequired: Boolean(rich),
+      }
+    : rich || initialFile
+      ? {
+          kind: 'upload' as const,
+          identity: rich?.pcmSha256 ?? song.id,
+          audio: sessionAudio?.audio ?? null,
+        }
+      : null
+  const playback = useSongPlayback(playbackSource, analyzing)
   const clock = playback.clock
   const position = useClockPosition(clock)
+  const [videoEnded, setVideoEnded] = useState(false)
+  useEffect(() => {
+    setVideoEnded(false)
+    if (playback.useAudio) return
+    const onMessage = (event: MessageEvent<unknown>) => {
+      if (
+        event.origin !== 'https://www.youtube-nocookie.com' ||
+        event.source !== playback.iframeRef.current?.contentWindow
+      )
+        return
+      let data: unknown
+      try {
+        data =
+          typeof event.data === 'string' ? JSON.parse(event.data) : event.data
+      } catch {
+        return
+      }
+      if (
+        !data ||
+        typeof data !== 'object' ||
+        !('event' in data) ||
+        (data.event !== 'infoDelivery' && data.event !== 'initialDelivery') ||
+        !('info' in data) ||
+        !data.info ||
+        typeof data.info !== 'object' ||
+        !('playerState' in data.info) ||
+        typeof data.info.playerState !== 'number'
+      )
+        return
+      setVideoEnded(data.info.playerState === 0)
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [song.youtubeId, playback.useAudio, playback.iframeRef])
+  const audio = playback.audioRef.current
+  const audioDuration =
+    playback.useAudio && audio && Number.isFinite(audio.duration)
+      ? audio.duration
+      : undefined
+  const mediaEnded = playback.useAudio ? Boolean(audio?.ended) : videoEnded
   const [recording, setRecording] = useState(false)
   const [draft, setDraft] = useState<number[]>([])
-  const syncTimes = validSyncTimes(song.syncTimes, steps.length)
-    ? song.syncTimes
-    : null
+  const richTimingCurrent =
+    !rich ||
+    (sourceFits &&
+      supportsAutomaticAlignment(rich.analysis.engineVersion) &&
+      rich.sequenceKey === analysisSequenceKey(steps) &&
+      sessionAudio?.hash === rich.pcmSha256)
+  const syncTimes =
+    validSyncTimes(song.syncTimes, steps.length) &&
+    (!rich || !song.audioAnalysis || sameRecording(song.audioAnalysis, rich)) &&
+    (!analysisSaveError || song.syncSource !== 'automatic') &&
+    (!rich || sessionAudio?.hash === rich.pcmSha256) &&
+    (song.syncSource !== 'automatic' || richTimingCurrent)
+      ? song.syncTimes
+      : null
   const synced = syncTimes !== null
+  // Derive playback selection in this render. An effect that copied the clock
+  // into state left the previous chord on screen for a frame at every change.
+  const idx =
+    synced && !recording && !listening
+      ? stepAtTime(syncTimes, position)
+      : practiceIdx
+
+  // A trailing unrecognized span is evidence that the final mapped chord
+  // stopped before the recording did. Keep its shape ready without saying Now.
+  const trailingSilence = analysis?.chords.at(-1)
+  const lastStart = syncTimes?.at(-1) ?? 0
+  const sheetEnd =
+    song.syncSource === 'automatic' &&
+    analysis?.endTime != null &&
+    analysis.endTime > lastStart
+      ? analysis.endTime
+      : trailingSilence?.label === 'N' && trailingSilence.start > lastStart
+        ? trailingSilence.start
+        : (analysis?.duration ?? audioDuration ?? Number.POSITIVE_INFINITY)
 
   // What sounds when: the synced sheet if we have it, else what was heard.
-  const timedChords = useMemo(
-    () =>
-      !analysis
-        ? []
-        : syncTimes
-          ? sheetChords(steps, syncTimes, analysis.duration)
-          : analysis.chords.filter((chord) => chord.label !== 'N'),
-    [analysis, syncTimes, steps],
-  )
+  const timedChords = useMemo(() => {
+    const chords = !analysis
+      ? []
+      : syncTimes
+        ? sheetChords(steps, syncTimes, sheetEnd)
+        : analysis.chords.filter((chord) => chord.label !== 'N')
+    if (!rich) return chords
+    return chords.flatMap((chord) =>
+      rich.analysis.harmony.flatMap((event) => {
+        if (event.kind !== 'chord') return []
+        const start = Math.max(chord.start, event.start),
+          end = Math.min(chord.end, event.end)
+        return start < end ? [{ ...chord, start, end }] : []
+      }),
+    )
+  }, [analysis, syncTimes, steps, sheetEnd, rich])
 
   const now = steps[idx]
-
-  // Without a pasted sheet, the stand follows the chords heard in the video.
-  // In a gap with no clear chord it shows the coming one, so it never blinks.
-  const heardLabel = steps.length
-    ? undefined
-    : (
-        chordAt(timedChords, position) ??
-        timedChords.find((chord) => chord.start > position) ??
-        timedChords.at(-1)
-      )?.label
-  const heardShape = useMemo(
-    () => (heardLabel ? resolveChord(heardLabel) : null),
-    [heardLabel],
+  const selectedOnly = Boolean(
+    playbackSource && !syncTimes && !listening && !recording,
   )
+  // A single-note passage intentionally has no chord; tab steps use note evidence.
+  const unresolvedNow = rich
+    ? now?.kind === 'notes'
+      ? !(
+          rich.analysis.monophonicNotes.some((note) =>
+            sounds(note, position),
+          ) ||
+          rich.analysis.polyphonicNotes.some((note) => sounds(note, position))
+        )
+      : rich.analysis.harmony.some(
+          (event) =>
+            event.start <= position &&
+            position < event.end &&
+            event.kind !== 'chord',
+        )
+    : false
+  const currentStepSounds =
+    !unresolvedNow &&
+    (listening ||
+      !syncTimes ||
+      !now ||
+      (!mediaEnded &&
+        sounds(
+          {
+            start: syncTimes[idx],
+            end: syncTimes[idx + 1] ?? sheetEnd,
+          },
+          position,
+        )))
+  const stepStatus = selectedOnly
+    ? 'Selected chord'
+    : currentStepSounds
+      ? now?.section
+        ? `${now.section} · now`
+        : 'Now'
+      : position < (syncTimes?.[0] ?? 0)
+        ? 'Get ready'
+        : mediaEnded ||
+            (analysis && position >= analysis.duration - 0.002) ||
+            (audioDuration != null && position >= audioDuration - 0.002)
+          ? 'Finished'
+          : 'No chord now'
+
+  // Lyrics follow audio estimates when the pasted sheet has no timing yet.
+  // Keep a selected practice shape confined to the sheet view.
+  const followingAudio =
+    !steps.length ||
+    Boolean(analysis && !synced && sheetView === 'lyrics' && !recording)
+  const heardChord =
+    followingAudio && (!rich || playback.ready)
+      ? chordAt(timedChords, position)
+      : undefined
+  const comingChord = !followingAudio
+    ? undefined
+    : timedChords.find((chord) => chord.start > position)
+  const heardLabel = !followingAudio
+    ? undefined
+    : (heardChord ?? comingChord ?? timedChords.at(-1))?.label
+  const heardStatus = heardChord
+    ? 'Heard now'
+    : analysis && position >= analysis.duration - 0.002
+      ? 'Finished'
+      : position < (timedChords[0]?.start ?? 0)
+        ? 'Get ready'
+        : 'No chord now'
+  const heardShape = useMemo(() => {
+    if (!heardLabel) return null
+    const shape = resolveChord(heardLabel)
+    const identity = parseChordIdentity(heardLabel)
+    return shape &&
+      identity &&
+      chordMidiNotes(shape.shape).every((m) =>
+        chordPitchClasses(identity).includes(m % 12),
+      ) &&
+      chordPitchClasses(identity).every((pc) =>
+        chordMidiNotes(shape.shape).some((m) => m % 12 === pc),
+      )
+      ? shape
+      : null
+  }, [heardLabel])
 
   // Video follow: a synced sheet tracks the shared clock while the video
   // plays — the same map lets sheet taps seek the video.
@@ -119,29 +335,57 @@ export function SongbookPlayer({
 
   // The runway runs on the song's clock while the video drives the sheet, and
   // walks the sheet one step at a time otherwise (unsynced, mic, tap-sync).
-  const runwayUnit = steps.length && !followVideo ? 'steps' : 'seconds'
+  const runwayUnit =
+    !followingAudio && steps.length && !followVideo ? 'steps' : 'seconds'
   const runway = useMemo(() => {
-    const chords = !steps.length
+    const noteEvidence = rich
+      ? [...rich.analysis.monophonicNotes, ...rich.analysis.polyphonicNotes]
+      : []
+    const chordEvidence =
+      rich?.analysis.harmony.filter((event) => event.kind === 'chord') ?? []
+    const chords = followingAudio
       ? timedChords
       : followVideo && syncTimes
-        ? sheetChords(steps, syncTimes, analysis?.duration ?? 0)
+        ? sheetChords(steps, syncTimes, sheetEnd)
+            .flatMap((span, index) => {
+              if (!rich) return [span]
+              // Keep unresolved gaps visible; tab notes use note evidence, not harmony.
+              const evidence =
+                steps[index].kind === 'notes' ? noteEvidence : chordEvidence
+              return evidence.flatMap((event) => {
+                const start = Math.max(span.start, event.start)
+                const end = Math.min(span.end, event.end)
+                return start < end ? [{ ...span, start, end }] : []
+              })
+            })
+            .sort((a, b) => a.start - b.start)
         : steps.map((step, i) => ({
             label: step.chord.symbol,
             start: i,
             end: i + 1,
           }))
-    const sections = steps.flatMap((step, i) =>
-      step.section && step.section !== steps[i - 1]?.section
-        ? [
-            {
-              label: step.section,
-              start: followVideo && syncTimes ? syncTimes[i] : i,
-            },
-          ]
-        : [],
-    )
+    const sections = followingAudio
+      ? []
+      : steps.flatMap((step, i) =>
+          step.section && step.section !== steps[i - 1]?.section
+            ? [
+                {
+                  label: step.section,
+                  start: followVideo && syncTimes ? syncTimes[i] : i,
+                },
+              ]
+            : [],
+        )
     return { runs: chordRuns(chords), sections }
-  }, [steps, timedChords, followVideo, syncTimes, analysis?.duration])
+  }, [
+    steps,
+    timedChords,
+    followVideo,
+    syncTimes,
+    sheetEnd,
+    followingAudio,
+    rich,
+  ])
 
   // The sheet line holding the lit chord, and the lyric under it, get a band.
   const litLine = useMemo(
@@ -212,7 +456,7 @@ export function SongbookPlayer({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!steps.length || timingLyrics) return
+      if (!steps.length || timingLyrics || followingAudio) return
       const target = e.target instanceof Element ? e.target : null
       // Fields, selects and the seek slider use these keys themselves.
       if (
@@ -245,11 +489,8 @@ export function SongbookPlayer({
     tapSync,
     cancelRecording,
     timingLyrics,
+    followingAudio,
   ])
-
-  useEffect(() => {
-    if (followVideo && syncTimes) setIdx(stepAtTime(syncTimes, position))
-  }, [followVideo, syncTimes, position])
 
   // Keep the lit chord in view as the song moves along.
   useEffect(() => {
@@ -266,8 +507,7 @@ export function SongbookPlayer({
     const pcs = new Set(midis.map((midi) => midi % 12))
     let raf = 0
     let lastChroma = 0
-    let smooth = 0
-    let framesAbove = 0
+    let micMatch = INITIAL_MIC_MATCH
     // Ignore the first beat after a step change so the tail of the previous
     // chord (often sharing notes) can't instantly trigger the next one.
     const armedAt = performance.now() + 700
@@ -277,6 +517,7 @@ export function SongbookPlayer({
     const tick = () => {
       const frame = engine.mic.frame()
       const t = performance.now()
+      if (!frame) micMatch = nextMicMatch(micMatch, null)
       if (frame && t - lastChroma > 100) {
         lastChroma = t
         let rms = 0
@@ -297,24 +538,19 @@ export function SongbookPlayer({
                   chromaEnergies(frame, engine.ctx.sampleRate),
                   pcs,
                 )
-          smooth = smooth * 0.5 + score * 0.5
+          micMatch = nextMicMatch(micMatch, score, t > armedAt)
           // Same thresholds as Listen mode: real strums plateau ~0.65-0.8,
           // wrong chords sit below 0.5; two frames filters pick transients.
-          if (t > armedAt && smooth > 0.58) {
-            framesAbove++
-            if (framesAbove >= 2 && !advanced) {
-              advanced = true
-              setHit(true)
-              onGlow(true)
-              advanceTimer = window.setTimeout(() => advance(1), 650)
-            }
-          } else {
-            framesAbove = 0
+          if (micMatch.framesAbove >= 2 && !advanced) {
+            advanced = true
+            setHit(true)
+            onGlow(true)
+            advanceTimer = window.setTimeout(() => advance(1), 650)
           }
         } else {
-          smooth *= 0.9
+          micMatch = nextMicMatch(micMatch, 'silence')
         }
-        setMatch(smooth)
+        setMatch(micMatch.smooth)
       }
       raf = requestAnimationFrame(tick)
     }
@@ -323,7 +559,7 @@ export function SongbookPlayer({
       cancelAnimationFrame(raf)
       window.clearTimeout(advanceTimer)
     }
-  }, [listening, now, advance, onGlow])
+  }, [listening, idx, now, advance, onGlow])
 
   // Let the bloom fade shortly after each hit.
   useEffect(() => {
@@ -344,19 +580,25 @@ export function SongbookPlayer({
     [onGlow],
   )
 
+  const stopMic = () => {
+    micRequest.current++
+    engine.mic.stop()
+    setListening(false)
+    setMatch(0)
+    setHit(false)
+    onGlow(false)
+  }
+
   const toggleMic = async () => {
-    const requestId = ++micRequest.current
     if (listening) {
-      engine.mic.stop()
-      setListening(false)
-      setMatch(0)
-      setHit(false)
-      onGlow(false)
+      stopMic()
       return
     }
+    const requestId = ++micRequest.current
     try {
       setMicError(null)
       clock.pause()
+      setIdx(idx)
       await engine.mic.start()
       if (requestId !== micRequest.current) return
       setListening(true)
@@ -370,11 +612,16 @@ export function SongbookPlayer({
 
   const stepBy = (dir: 1 | -1) =>
     jumpTo((idx + dir + steps.length) % steps.length)
-  const nowName = now?.chord.symbol ?? heardShape?.symbol
-  const nowShape =
-    now?.kind === 'notes' ? null : (now?.chord.shape ?? heardShape?.shape)
+  const nowName = followingAudio ? heardLabel : now?.chord.symbol
+  const nowShape = followingAudio
+    ? heardShape?.shape
+    : now?.kind === 'notes' || now?.chord.approx
+      ? null
+      : now?.chord.shape
+  const highlighted = followingAudio
+    ? Boolean(heardChord)
+    : currentStepSounds && !selectedOnly
   const hasPages = steps.length > 0 || Boolean(analysis)
-  const hasRail = Boolean(song.youtubeId) || parsed.warnings.length > 0
 
   return (
     <section
@@ -399,9 +646,29 @@ export function SongbookPlayer({
 
       {nowName && (
         <div className="stand">
-          <div className={`chord-card now${hit ? ' hit' : ''}`}>
-            {now?.section && <span className="role">{now.section}</span>}
+          <div
+            className={`chord-card${highlighted ? ' now' : ''}${!followingAudio && now?.kind === 'notes' ? ' note-step' : ''}${hit ? ' hit' : ''}`}
+          >
+            <span className="role">
+              {followingAudio ? heardStatus : stepStatus}
+            </span>
             <h2 className="chord-name">{nowName}</h2>
+            {!followingAudio && now && (
+              <p className="chord-notes">
+                {now.kind === 'notes' ? 'notes:' : 'Sheet pitches:'}{' '}
+                <strong>
+                  {[
+                    ...new Set(alignmentTarget(now).midis.map(midiToName)),
+                  ].join(' · ')}
+                </strong>
+              </p>
+            )}
+            {nowShape && (
+              <p className="recording-help">
+                Suggested fingering · the recording does not reveal string or
+                fret choices.
+              </p>
+            )}
             {nowShape && (
               <ChordDiagram
                 shape={nowShape}
@@ -409,9 +676,11 @@ export function SongbookPlayer({
                 width={104}
               />
             )}
-            {now?.kind === 'notes' && <TabBlock shape={now.chord.shape} />}
-            {now?.chord.approx && (
-              <p className="songbook-warn">closest playable shape</p>
+            {!followingAudio && now?.kind === 'notes' && (
+              <TabBlock shape={now.chord.shape} />
+            )}
+            {!followingAudio && now?.chord.approx && (
+              <p className="songbook-warn">Suggested fingering (approximate)</p>
             )}
             {(listening || micError) && (
               <div className="stand-listen">
@@ -445,13 +714,12 @@ export function SongbookPlayer({
             at={runwayUnit === 'steps' ? idx : position}
             unit={runwayUnit}
             clock={clock}
+            highlighted={highlighted}
           />
         </div>
       )}
 
-      <div
-        className={`player-body${hasPages ? '' : ' no-pages'}${hasRail ? '' : ' no-rail'}`}
-      >
+      <div className={`player-body${hasPages ? '' : ' no-pages'}`}>
         {hasPages && (
           <div className="songbook-pages">
             {analysis && steps.length > 0 && !recording && !timingLyrics && (
@@ -464,12 +732,32 @@ export function SongbookPlayer({
                 </button>
                 <button
                   aria-pressed={sheetView === 'lyrics'}
-                  onClick={() => setSheetView('lyrics')}
+                  onClick={() => {
+                    stopMic()
+                    setSheetView('lyrics')
+                  }}
                 >
                   Lyrics & notes
                 </button>
               </div>
             )}
+            {analysis &&
+              steps.length > 0 &&
+              !synced &&
+              !analyzing &&
+              !recording &&
+              !timingLyrics && (
+                <div className="sheet-timing-note" role="status">
+                  <p className="recording-help">
+                    {sheetView === 'lyrics'
+                      ? 'Following audio estimates. Your sheet still needs timing.'
+                      : 'Your sheet is not synced to this recording yet.'}
+                  </p>
+                  <button className="quiet-btn" onClick={startRecording}>
+                    Set sheet timing
+                  </button>
+                </div>
+              )}
             {steps.length > 0 && (
               <div
                 hidden={
@@ -482,14 +770,21 @@ export function SongbookPlayer({
                       key={li}
                       line={line}
                       idx={idx}
-                      band={li >= litLine && li <= bandEnd && litLine >= 0}
+                      current={currentStepSounds && !selectedOnly}
+                      selected={selectedOnly}
+                      band={
+                        li >= litLine &&
+                        li <= bandEnd &&
+                        litLine >= 0 &&
+                        highlighted
+                      }
                       onJump={jumpTo}
                     />
                   ))}
                 </div>
               </div>
             )}
-            {analysis && (
+            {analysis && song.youtubeId && (
               <div
                 hidden={
                   recording || (steps.length > 0 && sheetView === 'sheet')
@@ -515,59 +810,160 @@ export function SongbookPlayer({
                 />
               </div>
             )}
-          </div>
-        )}
-
-        {hasRail && (
-          <aside className="player-rail">
-            {parsed.warnings.map((warning) => (
-              <p className="songbook-warn" key={warning}>
-                {warning}
-              </p>
-            ))}
-            {song.youtubeId && (
-              <SongVideo
-                videoId={song.youtubeId}
-                title={song.title}
-                playback={playback}
-              />
-            )}
-            {song.youtubeId && (
-              <div hidden={recording}>
-                <YouTubeAnalysisPanel
-                  videoId={song.youtubeId}
-                  steps={steps}
-                  saved={song.videoAnalysis}
+            {rich && !song.youtubeId && analysis && (
+              <div
+                hidden={
+                  recording || (steps.length > 0 && sheetView === 'sheet')
+                }
+              >
+                <UploadLyrics
+                  key={rich.pcmSha256}
+                  identity={`upload:${rich.pcmSha256}`}
+                  analysis={analysis}
+                  saved={song.lyrics}
+                  suggestedText={suggestedLyrics}
+                  chords={timedChords}
                   clock={clock}
                   position={position}
-                  chords={timedChords}
-                  syncSource={synced ? (song.syncSource ?? 'manual') : null}
-                  onSetTiming={timingLyrics ? undefined : startRecording}
-                  onBusy={setAnalyzing}
-                  onResult={(videoAnalysis, times, detectedTitle) =>
-                    onUpdate({
-                      title:
-                        song.title === 'Untitled song' && detectedTitle
-                          ? detectedTitle
-                          : song.title,
-                      videoAnalysis,
-                      ...(!validSyncTimes(song.syncTimes, steps.length) &&
-                      times &&
-                      validSyncTimes(times, steps.length)
-                        ? { syncTimes: times, syncSource: 'automatic' as const }
-                        : {}),
-                    })
-                  }
+                  ready={playback.ready}
+                  onSave={(lyrics) => onUpdate({ lyrics })}
+                  onTimingChange={setTimingLyrics}
                 />
               </div>
             )}
-          </aside>
+          </div>
         )}
+
+        <aside className="player-rail">
+          {parsed.warnings.map((warning) => (
+            <p className="songbook-warn" key={warning}>
+              {warning}
+            </p>
+          ))}
+          {playbackSource && (
+            <SongVideo
+              videoId={song.youtubeId}
+              title={song.title}
+              playback={playback}
+            />
+          )}
+
+          <div className="songbook-analysis" hidden={recording}>
+            {analysisSaveError && (
+              <p className="songbook-warn" role="alert">
+                {analysisSaveError}
+              </p>
+            )}
+            {(() => {
+              const receive = (
+                saved: SavedAudioAnalysis,
+                envelope: ResultEnvelope,
+                audio: Blob,
+              ) => {
+                const previous = rich
+                const recordingMatches =
+                  !previous || sameRecording(previous, saved)
+                const sameOptions =
+                  !previous ||
+                  (previous.analysis.engineVersion ===
+                    saved.analysis.engineVersion &&
+                    JSON.stringify(previous.analysis.options) ===
+                      JSON.stringify(saved.analysis.options))
+                const keepManual =
+                  recordingMatches &&
+                  song.syncSource !== 'automatic' &&
+                  validSyncTimes(song.syncTimes, steps.length)
+                const legacy =
+                  saved.source.kind === 'youtube'
+                    ? {
+                        ...analysisProjection(saved.analysis),
+                        version: VIDEO_ANALYSIS_VERSION,
+                        videoId: saved.source.videoId,
+                        sequenceKey: saved.sequenceKey,
+                        syncReason: saved.alignment.reason,
+                        times: saved.alignment.times,
+                        endTime: saved.alignment.endTime,
+                        transpose: saved.alignment.transpose,
+                      }
+                    : undefined
+                const changes: Partial<Omit<SavedSong, 'id'>> = {
+                  title:
+                    song.title === 'Untitled song' && envelope.title
+                      ? envelope.title
+                      : song.title,
+                  audioAnalysis: saved,
+                  videoAnalysis: legacy,
+                  uploadSource:
+                    saved.source.kind === 'upload'
+                      ? {
+                          name: saved.source.name,
+                          byteLength: saved.source.byteLength,
+                          pcmSha256: saved.pcmSha256,
+                        }
+                      : undefined,
+                  ...(!keepManual
+                    ? {
+                        syncTimes: saved.alignment.times ?? undefined,
+                        syncSource: saved.alignment.times
+                          ? 'automatic'
+                          : undefined,
+                      }
+                    : {}),
+                  ...(!recordingMatches ? { lyrics: undefined } : {}),
+                }
+                if (
+                  !sameOptions &&
+                  song.syncSource === 'automatic' &&
+                  !saved.alignment.times
+                ) {
+                  changes.syncTimes = undefined
+                  changes.syncSource = undefined
+                }
+                setSessionAnalysis(saved)
+                setSessionAudio({ hash: saved.pcmSha256, audio })
+                if (
+                  new TextEncoder().encode(
+                    JSON.stringify({ ...song, ...changes }),
+                  ).length >
+                  2 * 1024 * 1024
+                ) {
+                  setAnalysisSaveError(
+                    'Detailed analysis is available in this session but exceeds the song save limit. Download its JSON below. Your saved song and manual timing were kept.',
+                  )
+                  return
+                }
+                setAnalysisSaveError(null)
+                onUpdate(changes)
+              }
+              const common = {
+                steps,
+                playbackReady: playback.ready,
+                saved: rich,
+                initialFile,
+                clock,
+                position,
+                syncSource: synced ? (song.syncSource ?? 'manual') : null,
+                onSetTiming:
+                  !timingLyrics && playback.ready ? startRecording : undefined,
+                onBusy: (busy: boolean) => {
+                  setAnalyzing(busy)
+                  if (busy) setSessionAudio(null)
+                },
+                onResult: receive,
+              }
+              return song.youtubeId ? (
+                <YouTubeAnalysisPanel {...common} videoId={song.youtubeId} />
+              ) : (
+                <AudioAnalysisPanel {...common} videoId={null} />
+              )
+            })()}
+          </div>
+        </aside>
       </div>
 
-      {(song.youtubeId || now) && (
+      {(playbackSource || now) && (
         <div className="player-bar">
-          {song.youtubeId && (
+          {playbackSource && (
             <SongTransport
               duration={analysis?.duration ?? 0}
               playback={playback}
@@ -595,6 +991,7 @@ export function SongbookPlayer({
             </div>
           ) : (
             now &&
+            !followingAudio &&
             !timingLyrics && (
               <div className="step-controls">
                 <button
@@ -636,11 +1033,15 @@ export function SongbookPlayer({
 const SheetLineView = memo(function SheetLineView({
   line,
   idx,
+  current,
+  selected,
   band,
   onJump,
 }: {
   line: SheetLine
   idx: number
+  current: boolean
+  selected: boolean
   band: boolean
   onJump: (i: number) => void
 }) {
@@ -653,10 +1054,12 @@ const SheetLineView = memo(function SheetLineView({
           <button
             key={si}
             data-step={seg.step}
-            className={`sheet-chord${seg.step === idx ? ' now' : ''}`}
+            className={`sheet-chord${seg.step === idx && current ? ' now' : ''}${seg.step === idx && selected ? ' selected' : ''}`}
             onClick={() => onJump(seg.step)}
             aria-label={`Jump to ${seg.text}`}
-            aria-current={seg.step === idx ? 'step' : undefined}
+            aria-current={
+              seg.step === idx && (current || selected) ? 'step' : undefined
+            }
           >
             {seg.text}
           </button>
@@ -667,3 +1070,238 @@ const SheetLineView = memo(function SheetLineView({
     </div>
   )
 })
+
+/** Upload lyrics reuse the existing parser/grouping, with no video-provider requests. */
+function UploadLyrics({
+  identity,
+  analysis,
+  saved,
+  suggestedText,
+  chords,
+  clock,
+  position,
+  ready,
+  onSave,
+  onTimingChange,
+}: {
+  identity: string
+  analysis: VideoAnalysis
+  saved?: SongLyrics
+  suggestedText: string
+  chords: TimedChord[]
+  clock: VideoClock
+  position: number
+  ready: boolean
+  onSave: (lyrics: SongLyrics) => void
+  onTimingChange: (marking: boolean) => void
+}) {
+  const lyrics = saved?.videoId === identity ? saved : undefined
+  const [editing, setEditing] = useState(!lyrics)
+  const [text, setText] = useState(lyrics?.text ?? suggestedText)
+  const [marks, setMarks] = useState<number[] | null>(null)
+  const pane = useRef<HTMLDivElement>(null)
+  const parsed = parseLyrics(lyrics?.text ?? text, analysis.duration)
+  const rows = lyrics?.cues
+    ? lyricRows(lyrics.cues, chords, analysis.notes, analysis.duration)
+    : []
+  const current = rows.findIndex((row) => sounds(row, position))
+  useEffect(() => {
+    onTimingChange(marks !== null)
+  }, [marks, onTimingChange])
+  useEffect(() => {
+    const element = pane.current?.querySelector<HTMLElement>(
+      '[aria-current="true"]',
+    )
+    if (pane.current && element && clock.isPlaying())
+      revealInPane(pane.current, element)
+  }, [current, clock])
+  const save = () => {
+    const next = parseLyrics(text, analysis.duration)
+    if (!next.lines.length) return
+    onSave({
+      videoId: identity,
+      source: 'pasted',
+      language: null,
+      automatic: false,
+      text,
+      cues: next.cues,
+    })
+    setEditing(false)
+  }
+  const mark = () => {
+    const time = clock.time()
+    if (
+      marks === null ||
+      time === null ||
+      !clock.isPlaying() ||
+      time >= analysis.duration ||
+      time <= (marks.at(-1) ?? -1)
+    )
+      return
+    const next = [...marks, time]
+    if (next.length < parsed.lines.length) {
+      setMarks(next)
+      return
+    }
+    onSave({
+      videoId: identity,
+      source: 'pasted',
+      language: null,
+      automatic: false,
+      text: parsed.lines.join('\n'),
+      cues: parsed.lines.map((line, i) => ({
+        text: line,
+        start: next[i],
+        end: next[i + 1] ?? analysis.duration,
+      })),
+    })
+    setMarks(null)
+    clock.pause()
+  }
+  return (
+    <section className="lyrics-sheet" aria-label="Upload lyrics and notes">
+      <header className="lyrics-head">
+        <h3>Lyrics & notes</h3>
+        <button
+          className="quiet-btn"
+          onClick={() => {
+            setText(lyrics?.text ?? suggestedText)
+            setEditing(true)
+            setMarks(null)
+          }}
+        >
+          Edit lyrics
+        </button>
+      </header>
+      {editing ? (
+        <div className="lyrics-editor">
+          <label htmlFor="upload-lyrics">
+            Paste lyrics, one line at a time. LRC timestamps are supported.
+          </label>
+          <textarea
+            id="upload-lyrics"
+            className="songbook-paste"
+            rows={8}
+            maxLength={200_000}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+          <div className="lyrics-actions">
+            <button className="play-btn" disabled={!text.trim()} onClick={save}>
+              Save lyrics
+            </button>
+            <button className="quiet-btn" onClick={() => setEditing(false)}>
+              Cancel editing
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {lyrics && !lyrics.cues && marks === null && (
+            <>
+              <p className="recording-help">
+                Your lyrics are saved. Mark each line to follow this recording.
+              </p>
+              <button
+                className="play-btn"
+                disabled={!ready}
+                onClick={() => {
+                  setMarks([])
+                  clock.seek(0)
+                  clock.play()
+                }}
+              >
+                Time lyrics to song
+              </button>
+            </>
+          )}
+          {marks !== null && (
+            <div className="lyrics-marking">
+              <p>
+                Tap as this line starts:{' '}
+                <strong>{parsed.lines[marks.length]}</strong>
+              </p>
+              <button
+                className="play-btn"
+                disabled={!clock.playing}
+                onClick={mark}
+              >
+                Mark line {marks.length + 1} of {parsed.lines.length}
+              </button>
+              <button
+                className="quiet-btn"
+                onClick={() => {
+                  setMarks(null)
+                  clock.pause()
+                }}
+              >
+                Cancel timing
+              </button>
+            </div>
+          )}
+          <div className="lyrics-lines" ref={pane}>
+            {rows.length
+              ? rows.map((row, index) => (
+                  <div
+                    key={`${row.start}-${index}`}
+                    className={`lyric-row${current === index ? ' active' : ''}`}
+                    aria-current={current === index ? 'true' : undefined}
+                  >
+                    <button
+                      className="lyric-words"
+                      onClick={() => clock.seek(row.start)}
+                    >
+                      {row.text}
+                    </button>
+                    <div className="lyric-notes">
+                      {row.held && (
+                        <span
+                          className={`held${current === index && sounds(row.held, position) ? ' sounding' : ''}`}
+                          title="Still ringing from the line before"
+                        >
+                          {row.held.label} <small>held</small>
+                        </span>
+                      )}
+                      {row.chords.map((chord, i) => (
+                        <button
+                          key={i}
+                          onClick={() =>
+                            clock.seek(Math.max(row.start, chord.start))
+                          }
+                          className={
+                            current === index && sounds(chord, position)
+                              ? 'sounding'
+                              : undefined
+                          }
+                          aria-current={
+                            current === index && sounds(chord, position)
+                              ? 'time'
+                              : undefined
+                          }
+                        >
+                          {chord.label}{' '}
+                        </button>
+                      ))}
+                      {row.notes.map((note, i) => (
+                        <button
+                          key={i}
+                          className={
+                            current === index && sounds(note, position)
+                              ? 'sounding'
+                              : undefined
+                          }
+                          onClick={() => clock.seek(note.start)}
+                        >
+                          {midiToNameWithOctave(note.midi)}{' '}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              : parsed.lines.map((line, index) => <p key={index}>{line}</p>)}
+          </div>
+        </>
+      )}
+    </section>
+  )
+}

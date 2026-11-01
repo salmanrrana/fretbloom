@@ -75,7 +75,7 @@ The LRC parser accepts explicit timestamps, metadata tags, offsets, repeated tim
 
 The middleware uses the same project-local yt-dlp process runner as audio and caption retrieval, including process-tree cancellation. It disables yt-dlp configuration files, cookies, browser cookies, and playlists. The local metadata request and LRCLIB request share a 45-second timeout and stop on client disconnect.
 
-Videos remain limited to 10 minutes. LRCLIB response bodies are streamed with a 1 MiB cap before JSON parsing. Work is concurrency-limited and requests are rate-limited by directly connected address. Responses are not cached and never include downloader output, local paths, credentials, LRCLIB plain lyrics, or rejected candidate text.
+Videos remain limited to 10 minutes. LRCLIB response bodies are streamed with a 1 MiB cap before JSON parsing. Work is concurrency-limited and requests are rate-limited by visitor address on Railway or connection address elsewhere. Responses are not cached and never include downloader output, local paths, credentials, LRCLIB plain lyrics, or rejected candidate text.
 
 ## Live verification
 

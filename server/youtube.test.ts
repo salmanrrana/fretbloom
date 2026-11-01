@@ -356,6 +356,7 @@ describe('createYouTubeMiddleware', () => {
     const testServer = await startServer({
       tempRoot,
       rateLimitMax: 1,
+      trustRailwayProxy: false,
       ytDlpPath: 'fake-ytdlp',
       ffmpegPath: 'fake-ffmpeg',
       runCommand: successfulRunner(calls),
@@ -364,12 +365,14 @@ describe('createYouTubeMiddleware', () => {
     try {
       const firstResponse = await fetch(
         `${testServer.baseUrl}/api/youtube-audio/dQw4w9WgXcQ`,
+        { headers: { 'X-Real-IP': '198.51.100.1' } },
       )
       expect(firstResponse.status).toBe(200)
       await firstResponse.arrayBuffer()
 
       const limitedResponse = await fetch(
         `${testServer.baseUrl}/api/youtube-audio/abcdefghijk`,
+        { headers: { 'X-Real-IP': '198.51.100.2' } },
       )
       expect(limitedResponse.status).toBe(429)
       expect(limitedResponse.headers.get('retry-after')).toBe('60')
@@ -380,9 +383,78 @@ describe('createYouTubeMiddleware', () => {
       await testServer.close()
     }
   })
+
+  it('gives Railway visitors separate limits behind one proxy', async () => {
+    const tempRoot = await createTempRoot()
+    const testServer = await startServer({
+      tempRoot,
+      rateLimitMax: 1,
+      trustRailwayProxy: true,
+      ytDlpPath: 'fake-ytdlp',
+      ffmpegPath: 'fake-ffmpeg',
+      runCommand: successfulRunner([]),
+    })
+    const importSong = (headers: Record<string, string>) =>
+      fetch(`${testServer.baseUrl}/api/youtube-audio/dQw4w9WgXcQ`, {
+        headers,
+      })
+
+    try {
+      expect((await importSong({ 'X-Real-IP': '198.51.100.1' })).status).toBe(
+        200,
+      )
+      expect((await importSong({ 'X-Real-IP': '198.51.100.2' })).status).toBe(
+        200,
+      )
+      expect((await importSong({ 'X-Real-IP': '198.51.100.1' })).status).toBe(
+        429,
+      )
+
+      // An invalid proxy address falls back to the peer's shared limit.
+      expect((await importSong({ 'X-Real-IP': 'not-an-ip' })).status).toBe(200)
+      expect(
+        (await importSong({ 'X-Real-IP': '198.51.100.3, 4' })).status,
+      ).toBe(429)
+    } finally {
+      await testServer.close()
+    }
+  })
 })
 
 describe('runCommand', () => {
+  it('keeps server credentials and runtime hooks out of media subprocesses', async () => {
+    const scratch = await createTempRoot()
+    const privateNames = [
+      'DATABASE_URL',
+      'FRETBLOOM_ACCESS_PASSWORD',
+      'FRETBLOOM_TEST_OTHER_SECRET',
+      'NODE_OPTIONS',
+      'PYTHONPATH',
+    ]
+    for (const name of privateNames) vi.stubEnv(name, 'test-only-private-value')
+    try {
+      const result = await runCommand(
+        process.execPath,
+        [
+          '-e',
+          `console.log(JSON.stringify({ privateAbsent: ${JSON.stringify(privateNames)}.every(name => process.env[name] === undefined), pathPresent: Boolean(process.env.PATH), home: process.env.HOME, temp: process.env.TMPDIR, locale: process.env.LC_ALL }))`,
+        ],
+        { cwd: scratch, signal: new AbortController().signal },
+      )
+      expect(result.exitCode).toBe(0)
+      const observed: unknown = JSON.parse(result.stdout)
+      expect(observed).toEqual({
+        privateAbsent: true,
+        pathPresent: Boolean(process.env.PATH),
+        home: scratch,
+        temp: scratch,
+        locale: 'C.UTF-8',
+      })
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
   it.skipIf(process.platform === 'win32')(
     'kills descendant processes when an operation is aborted',
     async () => {

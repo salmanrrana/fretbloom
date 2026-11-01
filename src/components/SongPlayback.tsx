@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { useSongPlayback } from './useSongPlayback'
 
 type Playback = ReturnType<typeof useSongPlayback>
@@ -16,23 +16,44 @@ export function SongVideo({
   title,
   playback,
 }: {
-  videoId: string
+  videoId: string | null
   title: string
   playback: Playback
 }) {
   const { useAudio } = playback
+  const audioRef = playback.audioRef
+  const attachAudio = useCallback(
+    (element: HTMLAudioElement | null) => {
+      audioRef.current = element
+      if (!element) return
+      return () => {
+        element.pause()
+        audioRef.current = null
+        // StrictMode reattaches the same node immediately after a cleanup.
+        queueMicrotask(() => {
+          if (audioRef.current !== element) {
+            element.removeAttribute('src')
+            element.load()
+          }
+        })
+      }
+    },
+    [audioRef],
+  )
   return (
     <section className="song-playback" aria-label="Song playback">
-      <div className="video-frame" hidden={useAudio}>
-        <iframe
-          ref={playback.iframeRef}
-          src={`https://www.youtube-nocookie.com/embed/${videoId}?enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}&playsinline=1&rel=0`}
-          title={`${title} video`}
-          referrerPolicy="strict-origin-when-cross-origin"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
-      </div>
+      {videoId && (
+        <div className="video-frame" hidden={useAudio}>
+          <iframe
+            ref={playback.iframeRef}
+            src={`https://www.youtube-nocookie.com/embed/${videoId}?enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}&playsinline=1&rel=0`}
+            title={`${title} video`}
+            referrerPolicy="strict-origin-when-cross-origin"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      )}
       {useAudio && (
         <div className="song-audio-status">
           <strong>Play along with the song audio</strong>
@@ -63,7 +84,7 @@ export function SongVideo({
       )}
       {playback.audioUrl && (
         <audio
-          ref={playback.audioRef}
+          ref={attachAudio}
           src={playback.audioUrl}
           preload="auto"
           onCanPlay={() => playback.setAudioReady(true)}
@@ -83,13 +104,15 @@ export function SongVideo({
             Video won’t play? Use song audio
           </button>
         )}
-        <a
-          href={`https://www.youtube.com/watch?v=${videoId}`}
-          target="_blank"
-          rel="noopener"
-        >
-          Watch on YouTube
-        </a>
+        {videoId && (
+          <a
+            href={`https://www.youtube.com/watch?v=${videoId}`}
+            target="_blank"
+            rel="noopener"
+          >
+            Watch on YouTube
+          </a>
+        )}
       </div>
     </section>
   )

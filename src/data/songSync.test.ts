@@ -47,9 +47,11 @@ test('a synced sheet becomes timed chords that end where the next begins', () =>
     { label: 'C', start: 3, end: 5 },
     { label: 'G', start: 5, end: 8 },
   ])
-  // Before the first chord starts, "now" is the first chord: get ready.
-  expect(chordAt(chords, 0)?.start).toBe(1)
+  // The next shape is available to prepare, but nothing is sounding yet.
+  expect(chordAt(chords, 0)).toBeUndefined()
   expect(chordAt(chords, 3)?.label).toBe('C')
+  expect(stepAtTime([1, 3, 5], 4.9999997)).toBe(2)
+  expect(chordAt(chords, 4.9999997)?.label).toBe('G')
   expect(chordAt(chords, 7.9)?.label).toBe('G')
   expect(chordAt(chords, 8)).toBeUndefined()
 })
@@ -61,4 +63,14 @@ test('repeats of one chord merge into one held span', () => {
     { label: 'G', start: 4, end: 8 },
     { label: 'Am', start: 8, end: 10 },
   ])
+})
+
+test('repeated chords separated by an unresolved span retain the gap', () => {
+  const chords = [
+    { label: 'C', start: 0, end: 1 },
+    { label: 'C', start: 2, end: 3 },
+  ]
+  const runs = chordRuns(chords)
+  expect(runs).toEqual(chords)
+  expect(chordAt(runs, 1.5)).toBeUndefined()
 })

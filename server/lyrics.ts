@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { clientAddress } from './clientAddress.ts'
 import {
   runCommand as defaultRunCommand,
   type CommandRunner,
@@ -51,6 +52,7 @@ export interface YouTubeLyricsMiddlewareOptions {
   runCommand?: CommandRunner
   fetchImpl?: typeof fetch
   now?: () => number
+  trustRailwayProxy?: boolean
 }
 
 export type YouTubeLyricsMiddleware = (
@@ -506,8 +508,8 @@ export function createYouTubeLyricsMiddleware(
     }
 
     const currentTime = now()
-    const clientAddress = request.socket.remoteAddress ?? 'unknown'
-    const recentRequests = (requestsByAddress.get(clientAddress) ?? []).filter(
+    const address = clientAddress(request, options.trustRailwayProxy)
+    const recentRequests = (requestsByAddress.get(address) ?? []).filter(
       (timestamp) => currentTime - timestamp < rateLimitWindowMs,
     )
     if (recentRequests.length >= rateLimitMax) {
@@ -532,7 +534,7 @@ export function createYouTubeLyricsMiddleware(
     for (const [address, times] of requestsByAddress)
       if (currentTime - times[times.length - 1] >= rateLimitWindowMs)
         requestsByAddress.delete(address)
-    requestsByAddress.set(clientAddress, recentRequests)
+    requestsByAddress.set(address, recentRequests)
 
     if (activeRequests >= maxConcurrent) {
       response.setHeader('Retry-After', '5')

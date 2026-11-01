@@ -106,6 +106,7 @@ export interface LyricRow extends LyricCue {
 
 /** A strum this close before a line's first word leads into that line. */
 const LEAD_IN = 0.35
+type GroupingCue = LyricCue & { instrumental?: boolean }
 
 /**
  * Each chord change is listed once, under the line it is struck in; a strum
@@ -114,21 +115,34 @@ const LEAD_IN = 0.35
  * rings gets it as `held` (keep holding), never as a new chord to play.
  */
 export function chordsForLyrics(
-  cues: readonly LyricCue[],
+  cues: readonly GroupingCue[],
   chords: readonly TimedChord[],
 ): Pick<LyricRow, 'chords' | 'held'>[] {
   const runs = chordRuns(chords)
+  // A lead-in belongs to the following words only if it still sounds there.
+  const leadsInto = (run: TimedChord, cue: GroupingCue) =>
+    !cue.instrumental &&
+    run.start < cue.start &&
+    run.start >= cue.start - LEAD_IN &&
+    run.end > cue.start
+  // Choose one owner before rendering rows, including tightly spaced lyric lines.
+  const owners = runs.map((run) => {
+    const lead = cues.findIndex((cue) => leadsInto(run, cue))
+    return lead >= 0
+      ? lead
+      : cues.findIndex((cue) => run.start >= cue.start && run.start < cue.end)
+  })
   return cues.map((cue, i) => {
-    const next = cues[i + 1]
-    const from = cue.start - LEAD_IN
-    const until =
-      next && next.start - cue.end < LEAD_IN ? next.start - LEAD_IN : cue.end
     return {
-      chords: runs.filter((run) => run.start >= from && run.start < until),
+      chords: runs.filter((_, index) => owners[index] === i),
       // Ringing under 0.2 s into the line is boundary jitter, not a hold.
       held:
-        runs.find((run) => run.start < from && run.end > cue.start + 0.2) ??
-        null,
+        runs.find(
+          (run, index) =>
+            run.start < cue.start &&
+            owners[index] !== i &&
+            run.end > cue.start + 0.2,
+        ) ?? null,
     }
   })
 }

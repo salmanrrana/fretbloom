@@ -31,3 +31,27 @@ dist-ssr
 
 # Project-local YouTube tooling
 .tools/
+
+# Rust build outputs (keep Cargo.lock and the pinned toolchain)
+/target/
+/test-results/
+/playwright-report/
+__pycache__/
+*.py[cod]
+
+# Local evaluation snapshots, captured outputs and installed browser packages.
+/validation/**/source/
+/validation/**/runs/
+/validation/**/results/
+/validation/**/context/
+/validation/**/vite-cache/
+/validation/**/harness-vite-cache/
+/validation/**/__pycache__/
+/validation/*/playwright/
+/validation/*/playwright-core/
+/validation/*/lint-source*/
+/validation/temporal-candidate/music-v3-complete/
+/validation/temporal-candidate/run-v3/
+/validation/temporal-candidate/parity/
+/validation/joint-attribution/phase-only/
+/validation/joint-attribution/control-results/

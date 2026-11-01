@@ -3,6 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { clientAddress } from './clientAddress.ts'
 import {
   runCommand as defaultRunCommand,
   type CommandRunner,
@@ -43,6 +44,7 @@ export interface YouTubeCaptionsMiddlewareOptions {
   tempRoot?: string
   runCommand?: CommandRunner
   now?: () => number
+  trustRailwayProxy?: boolean
 }
 
 export type YouTubeCaptionsMiddleware = (
@@ -556,8 +558,8 @@ export function createYouTubeCaptionsMiddleware(
     }
 
     const currentTime = now()
-    const clientAddress = request.socket.remoteAddress ?? 'unknown'
-    const recentRequests = (requestsByAddress.get(clientAddress) ?? []).filter(
+    const address = clientAddress(request, options.trustRailwayProxy)
+    const recentRequests = (requestsByAddress.get(address) ?? []).filter(
       (timestamp) => currentTime - timestamp < rateLimitWindowMs,
     )
     if (recentRequests.length >= rateLimitMax) {
@@ -582,7 +584,7 @@ export function createYouTubeCaptionsMiddleware(
     for (const [address, times] of requestsByAddress)
       if (currentTime - times[times.length - 1] >= rateLimitWindowMs)
         requestsByAddress.delete(address)
-    requestsByAddress.set(clientAddress, recentRequests)
+    requestsByAddress.set(address, recentRequests)
 
     if (activeRequests >= maxConcurrent) {
       response.setHeader('Retry-After', '5')

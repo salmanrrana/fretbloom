@@ -21,6 +21,48 @@ const cues = [
 ]
 
 describe('lyrics with detected notes', () => {
+  it('assigns a lead-in once when lyric lines arrive close together', () => {
+    const chord = { label: 'C', start: 0.05, end: 0.8 }
+    const rows = lyricRows(
+      [
+        { start: 0, end: 0.1, text: 'One' },
+        { start: 0.1, end: 0.2, text: 'Two' },
+        { start: 0.2, end: 1, text: 'Three' },
+      ],
+      [chord],
+      [],
+      1,
+    )
+    expect(rows.map((row) => row.chords)).toEqual([[], [chord], []])
+    expect(rows[2].held).toEqual(chord)
+  })
+  it.each([false, true])(
+    'keeps an ended chord before the next row (next lyric: %s)',
+    (nextLyric) => {
+      const lines = [{ start: 0, end: 4, text: 'First' }]
+      if (nextLyric) lines.push({ start: 4, end: 8, text: 'Second' })
+      const chord = { label: 'C', start: 3.7, end: 3.99 }
+      const rows = lyricRows(lines, [chord], [], 8)
+      expect(rows[0].chords).toEqual([chord])
+      expect(rows.filter((row) => row.instrumental)).toEqual([])
+      if (nextLyric) expect(rows[1]).toMatchObject({ chords: [], held: null })
+    },
+  )
+  it('a chord ringing into an instrumental break stays struck in its lyric row', () => {
+    const chord = { label: 'C', start: 3.7, end: 4.5 }
+    const rows = lyricRows(
+      [{ start: 0, end: 4, text: 'First' }],
+      [chord],
+      [],
+      8,
+    )
+    expect(rows[0].chords).toEqual([chord])
+    expect(rows[1]).toMatchObject({
+      instrumental: true,
+      chords: [],
+      held: chord,
+    })
+  })
   it('preserves manually repaired timing on unchanged text and plain word edits', () => {
     const saved: SongLyrics = {
       videoId: 'test',

@@ -46,6 +46,8 @@ export interface SyncTarget {
 export interface AlignmentResult {
   /** Video time where each pasted target starts, one per target, ascending. */
   times: number[]
+  /** Where the matched sheet section ends; null when exact sync is refused. */
+  endTime: number | null
   /** Evidence score, not a calibrated probability. */
   confidence: number
   reliable: boolean

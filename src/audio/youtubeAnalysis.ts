@@ -1,60 +1,13 @@
-import { analyzeSongFile } from './songAnalysis'
-import type { SongAnalysis } from './songAnalysisTypes'
+import { boundedBody } from './analysisClient'
 
-export interface YouTubeAnalysisResult {
-  analysis: SongAnalysis
-  title: string | null
-  audio: Blob
-}
-
-// Keep at most two recordings in memory for analysis and in-page playback.
-// Audio is never persisted in the songbook.
-const cache = new Map<string, YouTubeAnalysisResult>()
-
-export async function analyzeYouTube(
-  videoId: string,
-  {
-    signal,
-    onProgress,
-    onAnalyzing,
-  }: {
-    signal: AbortSignal
-    onProgress: (progress: number) => void
-    onAnalyzing: () => void
-  },
-): Promise<YouTubeAnalysisResult> {
-  if (!/^[\w-]{11}$/.test(videoId))
-    throw new Error('Enter a valid YouTube link.')
-  const cached = cache.get(videoId)
-  if (cached) {
-    signal.throwIfAborted()
-    return cached
-  }
-  const { blob, title } = await loadYouTubeAudio(videoId, signal)
-  onAnalyzing()
-  const analysis = await analyzeSongFile(
-    new File([blob], `${videoId}.wav`, { type: 'audio/wav' }),
-    { signal, onProgress },
-  )
-  signal.throwIfAborted()
-  const result = { analysis, title, audio: blob }
-  if (cache.size >= 2) cache.delete(cache.keys().next().value!)
-  cache.set(videoId, result)
-  return result
-}
-
-/** Share the analyzed recording with playback; reopened songs fetch it on demand. */
+/** Node-only playback fallback; Rust analysis supplies its own canonical audio. */
 export async function loadYouTubeAudio(
   videoId: string,
   signal: AbortSignal,
 ): Promise<{ blob: Blob; title: string | null }> {
   if (!/^[\w-]{11}$/.test(videoId))
     throw new Error('Enter a valid YouTube link.')
-  const cached = cache.get(videoId)
-  if (cached) {
-    signal.throwIfAborted()
-    return { blob: cached.audio, title: cached.title }
-  }
+  signal.throwIfAborted()
   const response = await fetch(`/api/youtube-audio/${videoId}`, { signal })
   const contentType = response.headers.get('content-type') ?? ''
   if (!response.ok) {
@@ -75,16 +28,14 @@ export async function loadYouTubeAudio(
     throw new Error(message)
   }
   if (!contentType.includes('audio/wav')) {
+    await response.body?.cancel()
     throw new Error(
       'Automatic YouTube analysis is not available on this server yet.',
     )
   }
-  const blob = await response.blob()
+  const bytes = await boundedBody(response, 16 * 1024 * 1024)
   signal.throwIfAborted()
-  if (blob.size > 16 * 1024 * 1024)
-    throw new Error(
-      'This video is too long to analyze. Choose one under 10 minutes.',
-    )
+  const blob = new Blob([bytes], { type: 'audio/wav' })
   let title: string | null = null
   const encodedTitle = response.headers.get('x-video-title')
   if (encodedTitle) {

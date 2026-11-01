@@ -1,45 +1,56 @@
-import { useCallback, useRef, useState } from 'react'
-import { TunerMode } from './components/TunerMode'
-import { ListenMode } from './components/ListenMode'
-import { SongbookMode } from './components/SongbookMode'
+import { useCallback, useEffect, useRef } from 'react'
+import {
+  NavLink,
+  Outlet,
+  useLocation,
+  useMatch,
+  useNavigation,
+} from 'react-router'
 
-type Mode = 'tune' | 'songbook' | 'listen'
-
-const EXPERIMENTS: { id: Mode; label: string }[] = [
-  { id: 'songbook', label: 'Songbook' },
-  { id: 'listen', label: 'Listen' },
-]
+export interface GardenContext {
+  onBloom: (level: number, inTune: boolean) => void
+  onGlow: (lit: boolean) => void
+}
 
 export default function App() {
-  const [mode, setMode] = useState<Mode>('tune')
-  const [greenhouse, setGreenhouse] = useState(false)
+  const location = useLocation()
+  const navigation = useNavigation()
+  const isSongbook = Boolean(useMatch('/songbook'))
+  const isListen = Boolean(useMatch('/listen'))
   const colorRef = useRef<HTMLDivElement>(null)
   const gardenRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLElement>(null)
+  const previousLocation = useRef(location.key)
 
-  /**
-   * The signature move: the flower wall blooms with tuning accuracy.
-   * level 0 = muted wall, 1 = full color; inTune adds the breathing pulse.
-   * Driven at rAF rate from the tuner, so it writes styles directly instead
-   * of going through React state.
-   */
+  /** The tuner updates the flower wall at animation-frame rate. */
   const onBloom = useCallback((level: number, inTune: boolean) => {
     const el = colorRef.current
     if (!el) return
-    const clamped = Math.max(0, Math.min(1, level))
-    el.style.opacity = String(clamped)
+    el.style.opacity = String(Math.max(0, Math.min(1, level)))
     gardenRef.current?.classList.toggle('in-tune', inTune)
   }, [])
 
-  /** Listen mode reuses the same wall: a hit is a full bloom. */
   const onGlow = useCallback(
     (lit: boolean) => onBloom(lit ? 1 : 0, lit),
     [onBloom],
   )
 
-  const pick = (m: Mode) => {
-    setMode(m)
+  useEffect(() => {
     onBloom(0, false)
-  }
+    const page = isSongbook
+      ? 'Songbook'
+      : isListen
+        ? 'Listen'
+        : location.pathname === '/'
+          ? 'Tuner'
+          : 'Page not found'
+    document.title = `${page} · fretbloom`
+    if (previousLocation.current !== location.key) {
+      contentRef.current?.focus({ preventScroll: true })
+      window.scrollTo(0, 0)
+      previousLocation.current = location.key
+    }
+  }, [location.key, location.pathname, isSongbook, isListen, onBloom])
 
   return (
     <>
@@ -48,75 +59,43 @@ export default function App() {
         <div className="garden-color" ref={colorRef} />
         <div className="garden-vignette" />
       </div>
+      {isSongbook && <div className="songbook-veil" aria-hidden="true" />}
 
-      {/* Songbook reads like a naturalist's press: a sheet of dark glass laid
-          over the garden so type can spread across the whole screen while the
-          flowers keep breathing underneath. */}
-      {mode === 'songbook' && (
-        <div className="songbook-veil" aria-hidden="true" />
-      )}
-
-      <div className={`shell${mode === 'songbook' ? ' shell-wide' : ''}`}>
+      <div className={`shell${isSongbook ? ' shell-wide' : ''}`}>
         <header className="masthead">
           <div>
             <h1 className="wordmark">fretbloom</h1>
             <p className="tagline">tune it and the wall blooms</p>
           </div>
+          <nav className="page-nav" aria-label="Main navigation">
+            <NavLink to="/" end>
+              Tuner
+            </NavLink>
+            <NavLink to="/listen">Listen</NavLink>
+            <NavLink to="/songbook">Songbook</NavLink>
+          </nav>
         </header>
 
-        {mode === 'tune' && <TunerMode onBloom={onBloom} />}
-        {mode === 'songbook' && <SongbookMode onGlow={onGlow} />}
-        {mode === 'listen' && <ListenMode onGlow={onGlow} />}
+        {navigation.state !== 'idle' && (
+          <p className="route-pending" role="status">
+            Opening{' '}
+            {navigation.location?.pathname === '/songbook'
+              ? 'Songbook'
+              : 'page'}
+            …
+          </p>
+        )}
+        <main className="page-content" ref={contentRef} tabIndex={-1}>
+          <Outlet context={{ onBloom, onGlow } satisfies GardenContext} />
+        </main>
 
         <p className="footnote">
           Your microphone stays on this device.
-          {mode === 'songbook' &&
+          {isSongbook &&
             ' YouTube audio is fetched through this site’s server.'}
-          {mode === 'listen' &&
-            ' Headphones help in listen mode — otherwise the app hears itself.'}
+          {isListen &&
+            ' Capture music locally from a shared tab or microphone; saved sessions stay on this browser.'}
         </p>
-      </div>
-
-      <div
-        className={`greenhouse-corner${mode === 'songbook' ? ' in-songbook' : ''}`}
-      >
-        {greenhouse && (
-          <nav className="experiments" aria-label="Experimental modes">
-            <p className="experiments-note">
-              Experiments growing in the greenhouse — rough edges expected.
-            </p>
-            <div className="experiments-row">
-              {EXPERIMENTS.map((m) => (
-                <button
-                  key={m.id}
-                  className={`target-chip${mode === m.id ? ' active' : ''}`}
-                  onClick={() => {
-                    pick(m.id)
-                    setGreenhouse(false)
-                  }}
-                  aria-pressed={mode === m.id}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-          </nav>
-        )}
-        <div className="greenhouse">
-          {mode !== 'tune' && (
-            <button className="ghost-btn" onClick={() => pick('tune')}>
-              ← tuner
-            </button>
-          )}
-          <button
-            className={`ghost-btn greenhouse-toggle${greenhouse ? ' open' : ''}`}
-            onClick={() => setGreenhouse((s) => !s)}
-            aria-expanded={greenhouse}
-            aria-label="Greenhouse — experimental features"
-          >
-            ⚘<span className="greenhouse-word">greenhouse</span>
-          </button>
-        </div>
       </div>
     </>
   )

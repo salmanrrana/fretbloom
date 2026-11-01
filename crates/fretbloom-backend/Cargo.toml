@@ -1,0 +1,26 @@
+[package]
+name = "fretbloom-backend"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+fretbloom-analysis = { path = "../fretbloom-analysis" }
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["io", "rt"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tempfile = "3"
+uuid = { version = "1", features = ["v4", "serde"] }
+sha2 = "0.10"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+nix = { version = "0.30", features = ["signal", "process"] }
+time = { version = "0.3", features = ["formatting"] }
+
+http-body-util = "0.1"
+
+[dev-dependencies]
+tokio-stream = "0.1"
+tower = { version = "0.5", features = ["util"] }

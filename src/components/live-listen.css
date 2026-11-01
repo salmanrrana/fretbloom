@@ -1,0 +1,321 @@
+.live-mode-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.live-listen {
+  min-width: 0;
+  color: var(--cream);
+}
+.live-listen h2 {
+  margin: 0 0 12px;
+  font-family: var(--font-display, inherit);
+  font-size: clamp(1.7rem, 4vw, 2.3rem);
+  line-height: 1.15;
+}
+.live-listen h3 {
+  margin: 30px 0 10px;
+  font-size: 1.2rem;
+}
+.live-listen p {
+  max-width: 70ch;
+  line-height: 1.6;
+  margin: 10px 0 16px;
+  overflow-wrap: anywhere;
+}
+.live-listen fieldset {
+  min-width: 0;
+  margin: 20px 0 12px;
+  padding: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--sage);
+}
+.live-listen legend {
+  padding-right: 12px;
+  font-weight: 650;
+}
+.live-listen label {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  max-width: 100%;
+}
+.live-listen input:not([type='checkbox'], [type='radio']),
+.live-listen select {
+  min-height: 44px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--sage);
+  border-radius: 6px;
+  background: var(--soil, #19211b);
+  color: var(--cream);
+  font: inherit;
+}
+.live-listen input[type='number'] {
+  max-width: 140px;
+}
+.live-listen input {
+  accent-color: var(--moss);
+  caret-color: var(--cream);
+}
+.live-listen button:not(.live-event, .mic-btn) {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--sage);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--cream);
+  font: inherit;
+  cursor: pointer;
+}
+.live-listen button:not(:disabled):hover {
+  background: color-mix(in srgb, var(--moss) 18%, transparent);
+}
+.live-listen button:disabled,
+.live-listen fieldset:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.live-listen .live-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.live-check input {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 3px;
+}
+.live-actions,
+.live-field-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.live-field-row > label {
+  flex: 1 1 180px;
+}
+.live-listen details {
+  margin: 16px 0;
+}
+.live-listen summary {
+  cursor: pointer;
+  min-height: 36px;
+  padding: 7px 0;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.live-capture-controls {
+  position: sticky;
+  top: 8px;
+  z-index: 3;
+  padding: 16px;
+  margin: 20px -4px 12px;
+  border-radius: 12px;
+  background: var(--soil, #19211b);
+}
+.live-signal {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+.live-signal label {
+  margin: 0;
+}
+.live-signal meter {
+  width: 120px;
+  accent-color: var(--moss);
+}
+.live-listen .live-time {
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 0;
+}
+.live-listen .live-stop {
+  background: var(--petal);
+  color: var(--soil, #19211b);
+}
+.live-listen .live-stop:not(:disabled):hover {
+  background: color-mix(in srgb, var(--petal) 85%, var(--cream));
+  color: var(--soil, #19211b);
+}
+.live-status {
+  font-weight: 600;
+}
+.live-error {
+  color: var(--cream);
+  background: color-mix(in srgb, var(--petal) 18%, var(--soil, #19211b));
+  padding: 14px;
+  border: 1px solid var(--petal);
+  border-radius: 8px;
+}
+.live-timeline {
+  min-width: 0;
+  margin-top: 24px;
+}
+.live-timeline-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-color: var(--sage) var(--soil, #19211b);
+  scrollbar-width: thin;
+  border-block: 1px solid var(--sage);
+}
+.live-timeline-track {
+  position: relative;
+  height: 210px;
+}
+.live-lane-labels {
+  display: grid;
+  gap: 36px;
+  padding-top: 6px;
+  color: var(--cream);
+  font-size: 0.75rem;
+}
+.live-listen .live-event {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 46px;
+  min-width: 16px;
+  padding: 3px;
+  border: 1px solid var(--sage);
+  border-radius: 3px;
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  color: var(--cream);
+  background: var(--soil, #19211b);
+  overflow: hidden;
+  cursor: pointer;
+}
+.live-listen .live-event.settled {
+  color: var(--soil, #19211b);
+  background: var(--sage);
+}
+.live-listen .live-event.tentative {
+  border-style: dashed;
+}
+.live-event small {
+  font-size: 0.6rem;
+}
+.live-event:focus-visible {
+  z-index: 2;
+  outline: 3px solid var(--petal);
+  outline-offset: 2px;
+}
+.live-event-detail {
+  padding: 12px;
+  background: var(--soil, #19211b);
+}
+.live-gap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--petal);
+  color: var(--cream);
+  font-size: 0.7rem;
+  z-index: 1;
+}
+.live-event-list {
+  padding-left: 24px;
+}
+.live-event-list li {
+  margin-bottom: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.live-event-list time {
+  font-variant-numeric: tabular-nums;
+}
+.live-event-list em {
+  font-size: 0.85em;
+}
+.live-listen audio {
+  width: 100%;
+  margin-top: 16px;
+}
+.live-video iframe {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  margin-block: 16px;
+}
+.live-listen a {
+  color: var(--cream);
+  text-underline-offset: 4px;
+}
+.live-sessions {
+  border-top: 1px solid var(--sage);
+  margin-top: 32px;
+}
+.live-sessions > ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.live-sessions > ul > li {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--sage);
+}
+.live-sessions strong {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .live-listen.panel {
+    padding: 20px 16px;
+  }
+  .live-field-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .live-field-row > label {
+    flex-basis: auto;
+  }
+  .live-capture-controls {
+    top: 0;
+    padding: 12px;
+  }
+  .live-listen .mic-btn {
+    width: 100%;
+  }
+  .live-listen .live-actions {
+    gap: 8px;
+  }
+  .live-signal {
+    font-size: 0.85rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-listen *,
+  .live-mode-switch * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.live-missed {
+  position: absolute;
+  top: 188px;
+  height: 20px;
+  color: var(--cream);
+  background: var(--stem);
+  border: 1px dashed var(--petal);
+  font-size: 0.7rem;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.live-listen summary:focus-visible,
+.live-timeline-scroll:focus-visible {
+  outline: 2px solid var(--leaf);
+  outline-offset: 3px;
+}

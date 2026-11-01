@@ -155,8 +155,8 @@ setInterval(()=>{if(state===1)time+=.1*rate;report()},100)
 )
 try {
   await page.goto(base)
-  await page.locator('.greenhouse-toggle').click()
-  await page.getByRole('button', { name: 'Songbook', exact: true }).click()
+  await page.getByRole('link', { name: 'Songbook', exact: true }).click()
+  await page.waitForURL('**/songbook')
   assert.equal(await page.locator('input[type=file]').count(), 0)
   await page
     .getByLabel('YouTube link', { exact: true })
@@ -245,8 +245,7 @@ try {
     localStorage.setItem('fretbloom.songbook.v1', JSON.stringify(songs))
   }, manualTimes)
   await page.reload()
-  await page.locator('.greenhouse-toggle').click()
-  await page.getByRole('button', { name: 'Songbook', exact: true }).click()
+  assert.equal(new URL(page.url()).pathname, '/songbook')
   await page.locator('.songbook-open').click()
   await analysisSettled()
   const preserved = await page.evaluate(
@@ -287,9 +286,6 @@ try {
   assert.equal(changed.syncTimes, undefined)
   assert.equal(changed.videoAnalysis, undefined)
   assert.equal(await page.locator('input[type=file]').count(), 0)
-  console.log(
-    'PASS changed video clears old analysis; unavailable video gives an honest error',
-  )
   await page.getByRole('button', { name: 'Edit Known YouTube phrase' }).click()
   await page
     .getByLabel('YouTube link', { exact: true })
@@ -367,16 +363,17 @@ On a sunny day`,
       `step ${step} at ${sheetTimes[step]}`,
     )
   assert.ok(await page.locator('.sheet').isVisible())
+  assert.equal(await page.locator('.sheet-chord.now').count(), 0)
   assert.equal(
-    await page.locator('.sheet-chord.now').getAttribute('data-step'),
-    '0',
+    await page.locator('.chord-card .role').textContent(),
+    'Get ready',
   )
   const strummedVideo = page
     .frames()
     .find((frame) => frame.url().includes('youtube-nocookie.com'))
   const playedAt = Date.now()
   await strummedVideo.locator('#play').click()
-  for (let step = 1; step < 6; step++) {
+  for (let step = 0; step < 6; step++) {
     await page.waitForFunction(
       (expected) =>
         document.querySelector('.sheet-chord.now')?.dataset.step === expected,
