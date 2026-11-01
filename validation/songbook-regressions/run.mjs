@@ -69,6 +69,10 @@ try {
   process.env.FRETBLOOM_ANALYSIS_ORIGIN = origin
   server = await createServer({
     cacheDir: resolve(destination, 'vite-cache'),
+    optimizeDeps: {
+      noDiscovery: true,
+      include: ['react', 'react-dom/client', 'react/jsx-runtime'],
+    },
     server: { host: '127.0.0.1', port: 0, watch: null },
   })
   await server.listen()
@@ -78,15 +82,21 @@ try {
   let jobs = 0
   let maximumRms = 0
   const featureReads = []
+  const featureReadErrors = []
   page.on('response', (response) => {
     if (response.ok() && response.url().endsWith('/features')) {
       featureReads.push(
-        response.json().then((features) => {
-          maximumRms = Math.max(
-            maximumRms,
-            ...features.frames.map((frame) => frame.rms),
-          )
-        }),
+        response
+          .json()
+          .then((features) => {
+            maximumRms = Math.max(
+              maximumRms,
+              ...features.frames.map((frame) => frame.rms),
+            )
+          })
+          .catch((error) => {
+            featureReadErrors.push(String(error))
+          }),
       )
     }
   })
@@ -141,6 +151,48 @@ try {
           .count()
           .then((n) => n === 1),
       )
+      assert.equal(await page.locator('.player-bar .song-transport').count(), 1)
+      assert.equal(await page.locator('.runway-chord.now').count(), 1)
+      const span = await page
+        .locator('.runway-chord')
+        .first()
+        .evaluate((element) => ({
+          start: Number(element.style.getPropertyValue('--start')),
+          length: Number(element.style.getPropertyValue('--len')),
+        }))
+      const note = original.audioAnalysis.analysis.monophonicNotes[0]
+      assert.equal(
+        span.start,
+        note.start,
+        'The runway leaves the real silent intro empty',
+      )
+      assert.ok(
+        span.start + span.length <= note.end,
+        'The runway ends at the measured note boundary',
+      )
+      await page.setViewportSize({ width: 1280, height: 900 })
+      await page.screenshot({
+        path: resolve(destination, 'player-desktop.png'),
+        fullPage: true,
+      })
+      await page.setViewportSize({ width: 360, height: 800 })
+      const bounds = await page
+        .locator('.stand, .player-bar, .player-rail')
+        .evaluateAll((elements) =>
+          elements.map((element) => {
+            const { left, right } = element.getBoundingClientRect()
+            return { left, right }
+          }),
+        )
+      assert.ok(
+        bounds.every(({ left, right }) => left >= -1 && right <= 361),
+        'Player controls fit the narrow viewport',
+      )
+      await page.screenshot({
+        path: resolve(destination, 'player-narrow.png'),
+        fullPage: true,
+      })
+      await page.setViewportSize({ width: 1280, height: 900 })
     },
   )
   await page.locator('audio').evaluate((audio) => {
@@ -153,6 +205,7 @@ try {
         .count()
         .then((n) => n === 0),
     )
+    assert.equal(await page.locator('.runway-chord.now').count(), 0)
   })
   const firstJobs = jobs
   await page
@@ -196,6 +249,7 @@ try {
         ),
       )
       await Promise.all(featureReads)
+      assert.deepEqual(featureReadErrors, [])
       assert.ok(
         maximumRms > 1,
         'The actual native features contain non-normalized RMS',

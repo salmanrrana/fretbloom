@@ -71,7 +71,9 @@ function Harness() {
       >
         Open clipped float recording
       </button>
-      <output id="saved-state">{JSON.stringify(song)}</output>
+      <output id="saved-state" hidden>
+        {JSON.stringify(song)}
+      </output>
       <SongbookPlayer
         key={generation}
         song={song}

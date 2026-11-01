@@ -183,3 +183,59 @@ WASM modules are unchanged, so the earlier Rust, safety, numerical and measured
 runtime results retain their stated scope. `git diff --check` passes for authored
 code; two historical report trailing spaces and one generated terminal blank
 line are preserved with their original evidence/artifact bytes.
+
+### Reconciliation with main
+
+The first published checkpoint is commit `1bde902`. GitHub reported conflicts
+with main's separate player redesign. The older main squash `5884cc0` and audit
+commit `9801036` have the same complete tree
+`25677286c23d5bf530ac113be22e3bc244833284`. Root used that verified common source
+tree to resolve duplicated history, then manually reconciled the five genuinely
+overlapping UI files. The merge retains main's chord runway, bottom transport,
+line bands and held-chord grouping alongside the Rust playback/timing behavior.
+
+Unresolved intervals and selected practice steps do not highlight the runway as
+heard chords. Equal chords separated by a gap remain separate: a focused test
+failed against the incoming grouping and passes after preserving that gap.
+Upload lyrics also render held chords without inventing another attack.
+
+The combined source passes the normal build and seven actual browser/native
+checks, including both parent navigation paths. The direct-player check also
+verifies the new transport, runway highlighting, silence, and 360px element
+bounds; desktop/narrow screenshots were visually inspected. The first direct
+run failed in the harness when Playwright lost a response body during dependency
+discovery. Its log and cleanup record are retained. The harness now pre-bundles
+its React dependencies and records response-read errors through its existing
+assertion/cleanup flow; no assertion or product behavior was relaxed.
+
+Evidence is `target/portable-root-integration/main-*`. All ten generated artifacts
+and the verified `936a6569…` source association are unchanged by this UI merge.
+The earlier Opus packaged acceptance predates the UI reconciliation; the merged
+UI has its own source review, build and browser checks. No additional musical,
+WASM performance or production acceptance is implied.
+
+The first structured merge review identified two further runway issues: synced
+blocks rebuilt from the sheet bypassed evidence gaps, and the current block used
+a different media-boundary tolerance. Both were accepted. Synced blocks now
+intersect chord steps with chord evidence and tab-note steps with note evidence;
+ordered adjacent blocks merge only without a gap. The runway uses the same
+`sounds` boundary helper as the sheet and lyrics. A rendered paused-boundary test
+reproduced the mismatch before the fix; 17 focused tests pass after it. The real
+native/browser test also checks that runway bounds respect the actual measured
+note's silent intro/outro. All five direct-player cases pass after the fixes.
+The original failed review and red tests remain beside the follow-up results.
+
+The next review caught incoming lyric grouping moving a finished chord into a
+silent instrumental outro. Root reproduced that case, the equivalent next-lyric
+case, and a ringing chord losing its onset-row ownership. A related short-line
+control also exposed duplicate lead-in assignment. Grouping now chooses one row
+per chord: only a real lyric line overlapping the chord can receive its lead-in;
+other later rows can show a sounding hold. All 21 focused grouping/runway tests
+pass, including the previously valid sung lead-ins. The red results and each
+review remain retained under distinct filenames.
+
+The final structured review (`review-main-final.json`) reports no actionable
+findings and explicitly covers evidence-limited runway spans, the shared media
+boundary check, and single-owner lyric grouping. The normal build passes after
+the last lyric fix (`main-build-lyrics-fixed.log`). This resolves the main-branch
+UI conflicts without changing the accepted native engine or generated runtime.
