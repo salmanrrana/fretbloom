@@ -4,6 +4,7 @@ pub mod error;
 pub mod jobs;
 pub mod media;
 pub mod process;
+pub mod separator;
 pub mod youtube;
 pub use config::Config;
 pub use error::BackendError;

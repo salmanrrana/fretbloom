@@ -88,6 +88,7 @@ export function SongbookPlayer({
   const [sessionAudio, setSessionAudio] = useState<{
     hash: string
     audio: Blob
+    guitarAudio?: Blob
   } | null>(null)
   const [analysisSaveError, setAnalysisSaveError] = useState<string | null>(
     null,
@@ -146,7 +147,11 @@ export function SongbookPlayer({
           audio: sessionAudio?.audio ?? null,
         }
       : null
-  const playback = useSongPlayback(playbackSource, analyzing)
+  const playback = useSongPlayback(
+    playbackSource,
+    analyzing,
+    sessionAudio?.guitarAudio,
+  )
   const clock = playback.clock
   const position = useClockPosition(clock)
   const [videoEnded, setVideoEnded] = useState(false)
@@ -859,6 +864,7 @@ export function SongbookPlayer({
                 saved: SavedAudioAnalysis,
                 envelope: ResultEnvelope,
                 audio: Blob,
+                guitarAudio?: Blob,
               ) => {
                 const previous = rich
                 const recordingMatches =
@@ -868,7 +874,9 @@ export function SongbookPlayer({
                   (previous.analysis.engineVersion ===
                     saved.analysis.engineVersion &&
                     JSON.stringify(previous.analysis.options) ===
-                      JSON.stringify(saved.analysis.options))
+                      JSON.stringify(saved.analysis.options) &&
+                    JSON.stringify(previous.analyzedAudio) ===
+                      JSON.stringify(saved.analyzedAudio))
                 const keepManual =
                   recordingMatches &&
                   song.syncSource !== 'automatic' &&
@@ -920,7 +928,7 @@ export function SongbookPlayer({
                   changes.syncSource = undefined
                 }
                 setSessionAnalysis(saved)
-                setSessionAudio({ hash: saved.pcmSha256, audio })
+                setSessionAudio({ hash: saved.pcmSha256, audio, guitarAudio })
                 if (
                   new TextEncoder().encode(
                     JSON.stringify({ ...song, ...changes }),

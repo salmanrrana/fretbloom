@@ -114,6 +114,19 @@ pub async fn run_process(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true);
+    let separator = executable == config.separator_python;
+    if separator {
+        for name in [
+            "OMP_NUM_THREADS",
+            "MKL_NUM_THREADS",
+            "OPENBLAS_NUM_THREADS",
+            "NUMEXPR_NUM_THREADS",
+        ] {
+            cmd.env(name, config.separator_threads.to_string());
+        }
+        cmd.env("HF_HUB_OFFLINE", "1")
+            .env("HF_HUB_DISABLE_TELEMETRY", "1");
+    }
     #[cfg(unix)]
     {
         cmd.process_group(0);
@@ -153,7 +166,19 @@ pub async fn run_process(
     let stderr = child.stderr.take().unwrap();
     let collect = async {
         let (status, out, err) = tokio::try_join!(
-            async { child.wait().await.map_err(BackendError::from) },
+            async {
+                let status = child.wait().await.map_err(BackendError::from)?;
+                // Descendants may inherit the pipes. Reap them as soon as the leader exits,
+                // so a killed helper cannot keep capture blocked until the job deadline.
+                #[cfg(unix)]
+                if let Some(pid) = pid {
+                    let _ = nix::sys::signal::killpg(
+                        nix::unistd::Pid::from_raw(pid as i32),
+                        nix::sys::signal::Signal::SIGKILL,
+                    );
+                }
+                Ok::<_, BackendError>(status)
+            },
             capture(stdout, stdout_cap),
             capture(stderr, config.max_process_output)
         )?;
@@ -170,16 +195,28 @@ pub async fn run_process(
         let deadline = tokio::time::sleep(timeout);
         tokio::pin!(deadline);
         let mut monitor = tokio::time::interval(Duration::from_millis(20));
+        // A full /proc scan is too costly at the 20 ms disk cadence; memory is checked every 250 ms.
+        let mut memory = tokio::time::interval(Duration::from_millis(250));
+        memory.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
             tokio::select! {
                 biased;
                 _ = cancel.cancelled() => break Err(BackendError::new("JOB_CANCELED")),
                 _ = &mut deadline => break Err(BackendError::new("PROCESSING_TIMEOUT")),
                 result = &mut collect => break result,
+                _ = memory.tick(), if separator => {
+                    let group = pid.unwrap_or(0);
+                    match tokio::task::spawn_blocking(move || group_rss(group)).await {
+                        Ok(Ok(bytes)) if bytes <= config.separator_max_rss => {},
+                        Ok(Ok(_)) => break Err(BackendError::new("SEPARATION_LIMIT")),
+                        Ok(Err(e)) => break Err(e),
+                        Err(_) => break Err(BackendError::new("BACKEND_UNAVAILABLE")),
+                    }
+                }
                 _ = monitor.tick() => {
                     match directory_bytes(dir).await {
                         Ok(bytes) if bytes <= config.max_job_disk => {},
-                        Ok(_) => break Err(BackendError::new("SOURCE_TOO_LARGE")),
+                        Ok(_) => break Err(BackendError::new(if separator { "SEPARATION_LIMIT" } else { "SOURCE_TOO_LARGE" })),
                         Err(e) => break Err(e),
                     }
                 }
@@ -209,5 +246,45 @@ pub async fn run_process(
         reap_group(pid).await;
     }
     group_guard.0 = None;
+    // A fast writer can exit between watchdog ticks; inspect its final disk usage too.
+    if separator && directory_bytes(dir).await? > config.max_job_disk {
+        return Err(BackendError::new("SEPARATION_LIMIT"));
+    }
     result
+}
+
+/// Sum resident memory for every member of the private process group (Linux /proc).
+/// Blocking; the watchdog runs it on the blocking pool.
+fn group_rss(group: u32) -> Result<u64, BackendError> {
+    // SAFETY: sysconf takes a scalar name and only returns a value.
+    let page = unsafe { nix::libc::sysconf(nix::libc::_SC_PAGESIZE) }.max(4096) as u64;
+    let mut total = 0;
+    for entry in std::fs::read_dir("/proc")? {
+        let entry = entry?;
+        if !entry
+            .file_name()
+            .as_encoded_bytes()
+            .iter()
+            .all(u8::is_ascii_digit)
+        {
+            continue;
+        }
+        // Processes may exit during the scan.
+        let Ok(stat) = std::fs::read_to_string(entry.path().join("stat")) else {
+            continue;
+        };
+        let Some((_, fields)) = stat.rsplit_once(") ") else {
+            continue;
+        };
+        // After the command name: state, ppid, pgrp, ... rss is the 22nd remaining field.
+        let fields: Vec<_> = fields.split_whitespace().collect();
+        if fields.get(2).and_then(|v| v.parse::<u32>().ok()) == Some(group) {
+            total += fields
+                .get(21)
+                .and_then(|v| v.parse::<u64>().ok())
+                .unwrap_or(0)
+                * page;
+        }
+    }
+    Ok(total)
 }

@@ -332,3 +332,37 @@ from discovering an enclosing repository's Git HEAD. The suffix preserves the
 reviewed bytes; it is not an upstream wasm-bindgen revision.
 In a full checkout, bootstrap also fetches the locked workspace dependencies so
 the subsequent offline build works with a fresh Cargo cache.
+
+### Guitar focus for server song analysis
+
+Run `npm run setup:separator` with Python 3.11 or 3.12 on Linux x86_64, then
+start the full backend. Setup installs a project-local CPU-only, hash-locked
+Demucs environment and verifies the official `htdemucs_6s` weights. Docker
+provisions the same tools before switching to its non-root user. A startup
+import/model-load check determines availability; a missing separator never
+silently analyzes the full mix instead.
+
+“Focus on guitar” separates uploaded or YouTube audio before the unchanged chord
+recognizer runs. It defaults on when available. Original playback, saved timing
+and lyrics remain tied to the original recording. The session transport can
+preview the isolated guitar at the same position. Separation can leak other
+instruments and lose quiet guitar parts; these are estimates.
+
+**Weights permission remains unresolved for app deployment.** The [Demucs 4.1.0
+code is MIT](https://pypi.org/project/demucs/4.1.0/); the author separately says
+weights are provided only for scientific purposes. No explicit license grant
+for this exact six-stem checkpoint was established. Owner-only, personal or
+non-commercial use does not itself establish permission. The evidence here is
+local scientific evaluation. Before deploying or distributing an image containing
+these weights, clarify permission or replace them with suitably licensed weights.
+See [upstream clarification](https://github.com/facebookresearch/demucs/issues/327)
+and the [current licensing statement](https://github.com/adefossez/demucs#license).
+
+This CPU model requires gigabytes of RAM and minutes of processing. A 0.5 GB
+service cannot run it. See [the measured validation report](docs/guitar-isolation-validation.md)
+for resources and worker hosting requirements. No infrastructure is deployed by
+setup. Optional local paths: `FRETBLOOM_SEPARATOR_PYTHON`,
+`FRETBLOOM_SEPARATOR_HELPER`, `FRETBLOOM_SEPARATOR_WEIGHTS`; limits:
+`FRETBLOOM_SEPARATOR_THREADS` (1–4; default 2) and
+`FRETBLOOM_SEPARATOR_MAX_RSS` (bytes; maximum/default 3 GiB). The weights hash
+is compiled in and cannot be overridden.

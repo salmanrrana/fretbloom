@@ -1,0 +1,26 @@
+[
+  {
+    "name": "six-minute-local",
+    "inputSha256": "e3c1857a33c423130d91df6d6e950594e73c4c0406d2162f1ea5019e00e176ed",
+    "focus": "guitar",
+    "wallSeconds": 429.43229836499995,
+    "cpuSeconds": 858.5699999999999,
+    "peakTreeRssBytes": 1646145536,
+    "peakJobDiskBytes": 144288189,
+    "resultSha256": "039d8220d5c8bd53ad3e43398f5d474a3cc39ec84cb83a0c909916d002dca16d",
+    "analyzedAudio": {
+      "guitarLevelDb": -2.711534222658214,
+      "kind": "guitar_stem",
+      "pcmSha256": "ee57df6cf71e6fd2ab916f7fee4c457a8f9fdd245aff4066de186d4131b8b176",
+      "separator": {
+        "model": "htdemucs_6s",
+        "overlap": 0.25,
+        "package": "demucs 4.1.0",
+        "runtime": "torch 2.8.0+cpu cpu",
+        "shifts": 0,
+        "weightsSha256": "34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd"
+      }
+    },
+    "pcmSha256": "f1d33bb30eda6bed30e2d77db7bfcbe66a3192e25e30ffa204c64df4a7e15ccb"
+  }
+]

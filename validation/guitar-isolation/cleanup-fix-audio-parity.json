@@ -1,0 +1,41 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "name": "00_SS3-84-Bb_comp-full_mix",
+      "sameAnalyzedPcmAndScores": true
+    },
+    {
+      "name": "00_SS3-84-Bb_comp-separated_guitar",
+      "sameAnalyzedPcmAndScores": true
+    },
+    {
+      "name": "00_SS3-84-Bb_comp-clean_guitar",
+      "sameAnalyzedPcmAndScores": true
+    },
+    {
+      "name": "00_SS3-84-Bb_comp-negative",
+      "sameAnalyzedPcmAndScores": true
+    },
+    {
+      "name": "01_Jazz3-150-C_comp-full_mix",
+      "sameAnalyzedPcmAndScores": true
+    },
+    {
+      "name": "01_Jazz3-150-C_comp-separated_guitar",
+      "sameAnalyzedPcmAndScores": true
+    },
+    {
+      "name": "01_Jazz3-150-C_comp-clean_guitar",
+      "sameAnalyzedPcmAndScores": true
+    },
+    {
+      "name": "01_Jazz3-150-C_comp-negative",
+      "sameAnalyzedPcmAndScores": true
+    },
+    {
+      "name": "determinism-repeat",
+      "sameAnalyzedPcmAndScores": true
+    }
+  ]
+}

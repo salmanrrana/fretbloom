@@ -3,6 +3,13 @@ use std::{net::SocketAddr, path::PathBuf, time::Duration};
 
 #[derive(Debug, Clone)]
 pub struct Config {
+    pub separator_python: PathBuf,
+    pub separator_helper: PathBuf,
+    pub separator_weights: PathBuf,
+    pub separation_timeout: Duration,
+    pub guitar_active_timeout: Duration,
+    pub separator_threads: u32,
+    pub separator_max_rss: u64,
     pub listen: SocketAddr,
     pub temp_root: PathBuf,
     pub ffmpeg: PathBuf,
@@ -28,6 +35,13 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            separator_python: ".tools/separator/bin/python".into(),
+            separator_helper: "scripts/separate-guitar.py".into(),
+            separator_weights: ".tools/separator/5c90dfd2-34c22ccb.th".into(),
+            separation_timeout: Duration::from_secs(2400),
+            guitar_active_timeout: Duration::from_secs(2700),
+            separator_threads: 2,
+            separator_max_rss: 3 * 1024 * 1024 * 1024,
             listen: "127.0.0.1:5210".parse().unwrap(),
             temp_root: std::env::temp_dir().join("fretbloom-analysis"),
             ffmpeg: "ffmpeg".into(),
@@ -47,8 +61,8 @@ impl Default for Config {
             lease_timeout: Duration::from_secs(60),
             retention: Duration::from_secs(1800),
             max_process_output: 2 * 1024 * 1024,
-            max_job_disk: 256 * 1024 * 1024,
-            max_total_disk: 512 * 1024 * 1024,
+            max_job_disk: 512 * 1024 * 1024,
+            max_total_disk: 1536 * 1024 * 1024,
         }
     }
 }
@@ -81,6 +95,9 @@ impl Config {
             ("FFPROBE_PATH", &mut c.ffprobe),
             ("YTDLP_PATH", &mut c.yt_dlp),
             ("NODE_PATH", &mut c.node),
+            ("FRETBLOOM_SEPARATOR_PYTHON", &mut c.separator_python),
+            ("FRETBLOOM_SEPARATOR_HELPER", &mut c.separator_helper),
+            ("FRETBLOOM_SEPARATOR_WEIGHTS", &mut c.separator_weights),
         ] {
             if let Some(v) = std::env::var_os(key) {
                 *target = v.into();
@@ -96,8 +113,28 @@ impl Config {
                 .parse()
                 .map_err(|_| BackendError::new("INVALID_REQUEST"))?;
         }
+        for (key, target) in [("FRETBLOOM_SEPARATOR_MAX_RSS", &mut c.separator_max_rss)] {
+            if let Ok(v) = std::env::var(key) {
+                *target = v
+                    .parse()
+                    .map_err(|_| BackendError::new("INVALID_REQUEST"))?;
+            }
+        }
+        if let Ok(v) = std::env::var("FRETBLOOM_SEPARATOR_THREADS") {
+            c.separator_threads = v
+                .parse()
+                .map_err(|_| BackendError::new("INVALID_REQUEST"))?;
+        }
         // Resolve relative executable paths before subprocess cwd changes to a private job directory.
-        for executable in [&mut c.ffmpeg, &mut c.ffprobe, &mut c.yt_dlp, &mut c.node] {
+        for executable in [
+            &mut c.ffmpeg,
+            &mut c.ffprobe,
+            &mut c.yt_dlp,
+            &mut c.node,
+            &mut c.separator_python,
+            &mut c.separator_helper,
+            &mut c.separator_weights,
+        ] {
             if executable.components().count() > 1 && executable.is_relative() {
                 *executable = std::env::current_dir()?.join(&*executable);
             }
@@ -110,7 +147,11 @@ impl Config {
     }
     pub fn validate(&self) -> Result<(), BackendError> {
         let d = Self::default();
-        if !self.listen.ip().is_loopback()
+        if self.separator_threads == 0
+            || self.separator_threads > 4
+            || self.separator_max_rss == 0
+            || self.separator_max_rss > d.separator_max_rss
+            || !self.listen.ip().is_loopback()
             || self.max_source_bytes == 0
             || self.max_source_bytes > d.max_source_bytes
             || self.max_duration_seconds == 0
@@ -125,6 +166,8 @@ impl Config {
             return Err(BackendError::new("INVALID_REQUEST"));
         }
         for (value, max) in [
+            (self.separation_timeout, d.separation_timeout),
+            (self.guitar_active_timeout, d.guitar_active_timeout),
             (self.probe_timeout, d.probe_timeout),
             (self.decode_timeout, d.decode_timeout),
             (self.youtube_timeout, d.youtube_timeout),

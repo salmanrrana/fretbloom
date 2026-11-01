@@ -1,0 +1,41 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "command": [
+        "/home/xtra/code/personal_projects/fretbloom-song-audit/.tools/node-v24.22.2-linux-x64/bin/node",
+        "node_modules/oxlint/bin/oxlint",
+        "e2e-guitar-focus.mjs"
+      ],
+      "exitCode": 0,
+      "wallSeconds": 0.039513351999630686,
+      "log": "validation/guitar-isolation/runs/e2e-lint-closeout.log"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exitCode": 0,
+      "wallSeconds": 0.0057701130008354085,
+      "log": "validation/guitar-isolation/runs/diff-closeout.log"
+    },
+    {
+      "command": [
+        "/usr/bin/python3",
+        "validation/guitar-isolation/cleanup.py"
+      ],
+      "exitCode": 0,
+      "wallSeconds": 0.055461574000219116,
+      "log": "validation/guitar-isolation/runs/cleanup-closeout.log"
+    }
+  ],
+  "inheritedProcessesExited": {
+    "105396": true,
+    "133267": true
+  },
+  "dedicatedBuilderRemoved": true,
+  "productSourceFreezeVerified": true,
+  "onlySourceChangeSinceTakeover": "e2e-guitar-focus.mjs; browser acceptance assertions only"
+}

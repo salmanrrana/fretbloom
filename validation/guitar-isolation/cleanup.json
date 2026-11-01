@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "remainingOwnedProcessIds": [],
+  "remainingTaskContainers": [],
+  "browserPorts": {
+    "rustPort": 40427,
+    "port": 41115
+  },
+  "browserPortsFree": {
+    "rustPort": true,
+    "port": true
+  },
+  "remainingJobDirectories": [],
+  "branch": "feat/guitar-isolation",
+  "head": "a696d54809ee27b75679255a7f7a927e47de55c2",
+  "forbiddenTrackedChanges": [],
+  "portableWasmSha256": "0f247f41bc86b6da7bd59a87399af2483b14f6eb32d7b27443b8d38699d84d3b",
+  "retainedImage": "fretbloom-guitar-runtime:local",
+  "noCommitsPushesDeploymentCredentialsOrLiveDatabases": true
+}

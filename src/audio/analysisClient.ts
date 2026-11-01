@@ -1,26 +1,31 @@
 import {
+  parseCapabilities,
+  parseJob,
+  parseResultEnvelope,
+  verifyFocus,
+  type Focus,
+  type Job,
+} from './songJob'
+import {
   DEFAULT_OPTIONS,
   MAX_AUDIO_BYTES,
   MAX_SOURCE_BYTES,
   parseAlignmentFeatures,
   parseApiError,
-  parseCapabilities,
-  parseJob,
   parseJobId,
   parseOptions,
-  parseResultEnvelope,
   parseSource,
   object,
   type AnalysisOptions,
   type ApiError,
   type CreateJob,
-  type Job,
   type Source,
 } from './analysisV1'
 
 const PREFIX = '/api/analysis/v1'
 export type ClientOptions = {
   signal: AbortSignal
+  focus?: Focus
   onStatus: (job: Job) => void
 }
 export class AnalysisApiError extends Error {
@@ -123,8 +128,12 @@ function jobPath(id: string) {
 export function getAnalysisCapabilities(signal: AbortSignal) {
   return json('/capabilities', parseCapabilities, signal)
 }
-export function createAnalysisJob(input: CreateJob, signal: AbortSignal) {
+export function createAnalysisJob(
+  input: CreateJob & { focus?: Focus },
+  signal: AbortSignal,
+) {
   const body = JSON.stringify({
+    focus: input.focus ?? 'full_mix',
     source: parseSource(input.source),
     options: parseOptions({ ...DEFAULT_OPTIONS, ...input.options }),
   })
@@ -176,12 +185,16 @@ export function getAnalysisFeatures(id: string, signal: AbortSignal) {
 export async function getAnalysisAudio(
   id: string,
   signal: AbortSignal,
+  guitar = false,
 ): Promise<Blob> {
-  const response = await fetch(`${PREFIX}${jobPath(id)}/audio`, {
-    signal,
-    credentials: 'same-origin',
-    cache: 'no-store',
-  })
+  const response = await fetch(
+    `${PREFIX}${jobPath(id)}/${guitar ? 'guitar-audio' : 'audio'}`,
+    {
+      signal,
+      credentials: 'same-origin',
+      cache: 'no-store',
+    },
+  )
   if (!response.ok) return responseError(response)
   if (!response.headers.get('content-type')?.includes('audio/wav')) {
     await response.body?.cancel()
@@ -212,7 +225,9 @@ async function analyze(
   client: ClientOptions,
   file?: File,
 ) {
-  const deadline = AbortSignal.timeout(420_000)
+  const focus = client.focus ?? 'full_mix'
+  // Guitar: longer than the server's worst case (upload 120 s + queue 60 s + active 2,700 s).
+  const deadline = AbortSignal.timeout(focus === 'guitar' ? 3_000_000 : 420_000)
   const active = new AbortController()
   const signal = AbortSignal.any([client.signal, deadline, active.signal])
   let id: string | undefined
@@ -228,7 +243,14 @@ async function analyze(
       throw new Error(
         'This source or analysis mode is unavailable on this server.',
       )
-    let job = await createAnalysisJob({ source, options }, signal)
+    if (focus === 'guitar' && !capabilities.separation.available)
+      throw new AnalysisApiError({
+        code: 'SEPARATOR_UNAVAILABLE',
+        message:
+          capabilities.separation.reason ?? 'Guitar separation is unavailable.',
+        retryable: false,
+      })
+    let job = await createAnalysisJob({ source, options, focus }, signal)
     id = job.id
     client.onStatus(job)
     if (file) {
@@ -266,12 +288,19 @@ async function analyze(
         throw error
       }
     }
-    const [result, features, audio] = await Promise.all([
+    const [result, features, audio, guitarAudio] = await Promise.all([
       getAnalysisResult(id, signal),
       getAnalysisFeatures(id, signal),
       getAnalysisAudio(id, signal),
+      focus === 'guitar'
+        ? getAnalysisAudio(id, signal, true)
+        : Promise.resolve(undefined),
     ])
     signal.throwIfAborted()
+    verifyFocus(result, focus, capabilities.separation.separator)
+    // Both previews are 24 kHz mono WAVs on one timeline, so their sizes must match.
+    if (guitarAudio && guitarAudio.size !== audio.size)
+      throw new Error('The guitar preview does not match the song timeline.')
     if (
       result.jobId !== id ||
       JSON.stringify(result.source) !== JSON.stringify(source) ||
@@ -286,11 +315,11 @@ async function analyze(
       Math.abs(result.analysis.duration - features.duration) > 1e-6
     )
       throw new Error('Analysis and playback timing features do not match.')
-    return { result, features, audio }
+    return { result, features, audio, guitarAudio }
   } catch (error) {
     if (deadline.aborted && !client.signal.aborted)
       throw new Error(
-        'Analysis exceeded its seven-minute deadline. Try a shorter recording.',
+        'Analysis exceeded its time limit. Try a shorter recording.',
       )
     throw error
   } finally {

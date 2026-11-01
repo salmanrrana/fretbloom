@@ -1,0 +1,138 @@
+[
+  {
+    "mode": "wrong_hash",
+    "passed": true,
+    "error": {
+      "code": "SEPARATOR_UNAVAILABLE",
+      "message": "Guitar separation is unavailable. Choose full mix explicitly to continue.",
+      "retryable": false
+    }
+  },
+  {
+    "mode": "exit",
+    "passed": true,
+    "error": {
+      "code": "SEPARATION_FAILED",
+      "message": "Guitar separation failed. No full-mix analysis was substituted.",
+      "retryable": false
+    },
+    "stages": [
+      "decoding",
+      "separating",
+      "failed"
+    ],
+    "grandchild": null,
+    "cleaned": false
+  },
+  {
+    "mode": "bad_output",
+    "passed": true,
+    "error": {
+      "code": "SEPARATION_FAILED",
+      "message": "Guitar separation failed. No full-mix analysis was substituted.",
+      "retryable": false
+    },
+    "stages": [
+      "decoding",
+      "separating",
+      "failed"
+    ],
+    "grandchild": null,
+    "cleaned": false
+  },
+  {
+    "mode": "alignment",
+    "passed": true,
+    "error": {
+      "code": "SEPARATION_FAILED",
+      "message": "Guitar separation failed. No full-mix analysis was substituted.",
+      "retryable": false
+    },
+    "stages": [
+      "decoding",
+      "separating",
+      "failed"
+    ],
+    "grandchild": null,
+    "cleaned": false
+  },
+  {
+    "mode": "memory",
+    "passed": true,
+    "error": {
+      "code": "SEPARATION_LIMIT",
+      "message": "Guitar separation exceeded its memory or disk limit.",
+      "retryable": false
+    },
+    "stages": [
+      "decoding",
+      "separating",
+      "separating",
+      "separating",
+      "separating",
+      "separating",
+      "separating",
+      "failed"
+    ],
+    "grandchild": null,
+    "cleaned": false
+  },
+  {
+    "mode": "disk",
+    "passed": true,
+    "error": {
+      "code": "SEPARATION_LIMIT",
+      "message": "Guitar separation exceeded its memory or disk limit.",
+      "retryable": false
+    },
+    "stages": [
+      "decoding",
+      "separating",
+      "separating",
+      "separating",
+      "separating",
+      "separating",
+      "separating",
+      "separating",
+      "separating",
+      "separating",
+      "failed"
+    ],
+    "grandchild": null,
+    "cleaned": false
+  },
+  {
+    "mode": "cancel",
+    "passed": true,
+    "error": {
+      "code": "JOB_CANCELED",
+      "message": "The analysis job was canceled.",
+      "retryable": false
+    },
+    "stages": [
+      "decoding",
+      "separating",
+      "separating",
+      "canceled"
+    ],
+    "grandchild": 105571,
+    "cleaned": true
+  },
+  {
+    "mode": "killed",
+    "passed": true,
+    "error": {
+      "code": "SEPARATION_FAILED",
+      "message": "Guitar separation failed. No full-mix analysis was substituted.",
+      "retryable": false
+    },
+    "stages": [
+      "decoding",
+      "separating",
+      "separating",
+      "failed"
+    ],
+    "grandchild": 105597,
+    "cleaned": true
+  }
+]

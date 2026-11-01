@@ -1,7 +1,14 @@
+import {
+  analyzedSourceLabel,
+  type Focus,
+  type Job,
+  type ResultEnvelope,
+} from '../audio/songJob'
 import { supportsAutomaticAlignment } from '../audio/analysisCompatibility'
 import { useEffect, useRef, useState } from 'react'
 import {
   analyzeUploadedAudio,
+  getAnalysisCapabilities,
   analyzeYouTubeAudio,
 } from '../audio/analysisClient'
 import {
@@ -9,9 +16,7 @@ import {
   MODES,
   parseOptions,
   type AnalysisOptions,
-  type Job,
   type NoteEvent,
-  type ResultEnvelope,
 } from '../audio/analysisV1'
 import { alignRichAnalysis } from '../audio/analysisAdapter'
 import { analysisSequenceKey, type SavedAudioAnalysis } from '../data/songbook'
@@ -33,6 +38,7 @@ export interface AudioAnalysisProps {
     saved: SavedAudioAnalysis,
     envelope: ResultEnvelope,
     audio: Blob,
+    guitarAudio?: Blob,
   ) => void
 }
 type Status =
@@ -45,6 +51,32 @@ function timestamp(t: number) {
 
 /** Server analysis belongs to the song's real playback clock, never to a shape guess. */
 export function AudioAnalysisPanel(props: AudioAnalysisProps) {
+  // null while loading; 'unknown' when the check failed, so analyze() checks again.
+  const [capability, setCapability] = useState<
+    | Awaited<ReturnType<typeof getAnalysisCapabilities>>['separation']
+    | 'unknown'
+    | null
+  >(null)
+  // Guitar is the default for new analyses; a saved analysis keeps its own focus.
+  const [focus, setFocus] = useState<Focus>(
+    !props.saved || props.saved.analyzedAudio?.kind === 'guitar_stem'
+      ? 'guitar'
+      : 'full_mix',
+  )
+  useEffect(() => {
+    const controller = new AbortController()
+    void getAnalysisCapabilities(controller.signal)
+      .then((c) => {
+        if (controller.signal.aborted) return
+        setCapability(c.separation)
+        if (!latest.current.saved)
+          setFocus(c.separation.available ? 'guitar' : 'full_mix')
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setCapability('unknown')
+      })
+    return () => controller.abort()
+  }, [])
   const [options, setOptions] = useState<AnalysisOptions>(
     props.saved?.analysis.options ?? DEFAULT_OPTIONS,
   )
@@ -60,6 +92,8 @@ export function AudioAnalysisPanel(props: AudioAnalysisProps) {
   const sourceKey = props.videoId ?? 'upload'
   const sequenceKey = analysisSequenceKey(props.steps)
   useEffect(() => {
+    // Wait for the capability check so a new analysis starts with the right focus.
+    if (!capability) return
     // A result already on the song is evidence; opening it must not force a write.
     if (
       attempt === 0 &&
@@ -74,6 +108,7 @@ export function AudioAnalysisPanel(props: AudioAnalysisProps) {
     const timer = window.setTimeout(() => {
       const client = {
         signal: controller.signal,
+        focus,
         onStatus: (job: Job) => {
           if (!controller.signal.aborted) setStatus({ kind: 'busy', job })
         },
@@ -84,7 +119,7 @@ export function AudioAnalysisPanel(props: AudioAnalysisProps) {
           ? analyzeYouTubeAudio(latest.current.videoId, options, client)
           : Promise.reject(new Error('Choose a recording to analyze.'))
       void run
-        .then(({ result, features, audio }) => {
+        .then(({ result, features, audio, guitarAudio }) => {
           if (controller.signal.aborted) return
           const steps = latest.current.steps
           const alignment = alignRichAnalysis(result, features, steps)
@@ -92,6 +127,7 @@ export function AudioAnalysisPanel(props: AudioAnalysisProps) {
             schemaVersion: 1,
             source: result.source,
             pcmSha256: result.pcmSha256,
+            analyzedAudio: result.analyzedAudio,
             analysis: result.analysis,
             sequenceKey: analysisSequenceKey(steps),
             alignment: {
@@ -103,7 +139,7 @@ export function AudioAnalysisPanel(props: AudioAnalysisProps) {
           }
           setCurrent(saved)
           setStatus({ kind: 'ready' })
-          latest.current.onResult(saved, result, audio)
+          latest.current.onResult(saved, result, audio, guitarAudio)
         })
         .catch((error: unknown) => {
           if (!controller.signal.aborted)
@@ -126,7 +162,7 @@ export function AudioAnalysisPanel(props: AudioAnalysisProps) {
     }
     // Options are applied on explicit Analyze; writes from onResult cannot restart this job.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sourceKey, file, attempt])
+  }, [sourceKey, file, attempt, capability])
 
   const busy = status.kind === 'busy'
   const analysis = current?.analysis
@@ -195,6 +231,35 @@ export function AudioAnalysisPanel(props: AudioAnalysisProps) {
           Audio is temporary. Reattach the recording after reopening this song.
           Timing is reused only after the decoded audio hash is verified.
         </p>
+      )}
+      <label>
+        <input
+          type="checkbox"
+          checked={focus === 'guitar'}
+          disabled={
+            busy || (capability !== 'unknown' && !capability?.available)
+          }
+          onChange={(event) =>
+            setFocus(event.target.checked ? 'guitar' : 'full_mix')
+          }
+        />
+        Focus on guitar
+      </label>
+      <p className="recording-help">
+        Separates the guitar from other instruments before finding chords. Takes
+        a few minutes. Separation isn’t perfect: other instruments can leak in
+        and quiet guitar parts can be lost.
+      </p>
+      {capability === 'unknown' ? (
+        <p className="recording-help">
+          Could not check guitar separation. It will be checked again when you
+          analyze.
+        </p>
+      ) : (
+        capability &&
+        !capability.available && (
+          <p className="recording-help">{capability.reason}</p>
+        )
       )}
       <div className="analysis-options">
         <label>
@@ -277,7 +342,7 @@ export function AudioAnalysisPanel(props: AudioAnalysisProps) {
       ) : (
         <button
           className="quiet-btn"
-          disabled={!props.videoId && !file}
+          disabled={!capability || (!props.videoId && !file)}
           onClick={() => setAttempt((a) => a + 1)}
         >
           {analysis ? 'Analyze recording again' : 'Analyze recording'}
@@ -286,6 +351,16 @@ export function AudioAnalysisPanel(props: AudioAnalysisProps) {
       {status.kind === 'error' && (
         <p role="alert" className="songbook-warn">
           {status.message}
+          {focus === 'guitar' && (
+            <button
+              onClick={() => {
+                setFocus('full_mix')
+                setAttempt((a) => a + 1)
+              }}
+            >
+              Analyze full mix instead
+            </button>
+          )}
         </p>
       )}
       {status.kind === 'canceled' && <p role="status">Analysis canceled.</p>}
@@ -314,6 +389,14 @@ export function AudioAnalysisPanel(props: AudioAnalysisProps) {
       )}
       {analysis && (
         <>
+          <p>{analyzedSourceLabel(current?.analyzedAudio)}</p>
+          {current?.analyzedAudio?.kind === 'guitar_stem' &&
+            current.analyzedAudio.guitarLevelDb < -30 && (
+              <p className="songbook-warn">
+                Very little guitar was found. Results may come from other
+                instruments leaking through.
+              </p>
+            )}
           <p className="recording-now">
             Now:{' '}
             <strong>

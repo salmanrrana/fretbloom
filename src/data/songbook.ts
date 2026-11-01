@@ -1,3 +1,4 @@
+import { parseAnalyzedAudio, type AnalyzedAudio } from '../audio/songJob'
 import { supportsAutomaticAlignment } from '../audio/analysisCompatibility'
 import { AUDIO_ALIGNMENT_VERSION } from '../audio/analysisAdapter'
 import {
@@ -36,6 +37,7 @@ export interface VideoAnalysis {
 }
 
 export interface SavedAudioAnalysis {
+  analyzedAudio?: AnalyzedAudio
   schemaVersion: 1
   source: Source
   pcmSha256: string
@@ -67,6 +69,14 @@ export function parseSavedAudioAnalysis(value: unknown): SavedAudioAnalysis {
     schemaVersion: choice(v.schemaVersion, [1]),
     source: parseSource(v.source),
     pcmSha256: parseHash(v.pcmSha256),
+    ...(v.analyzedAudio === undefined
+      ? {}
+      : {
+          analyzedAudio: parseAnalyzedAudio(
+            v.analyzedAudio,
+            parseHash(v.pcmSha256),
+          ),
+        }),
     analysis,
     sequenceKey: string(v.sequenceKey, 200_000, 0),
     alignment: {

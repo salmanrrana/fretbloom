@@ -30,6 +30,14 @@ pub enum Source {
         content_type: String,
     },
 }
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Focus {
+    Guitar,
+    #[default]
+    FullMix,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Status {
@@ -37,6 +45,7 @@ pub enum Status {
     Queued,
     Fetching,
     Decoding,
+    Separating,
     Analyzing,
     Succeeded,
     Failed,
@@ -59,6 +68,7 @@ pub struct Job {
     pub id: Uuid,
     pub source: Source,
     pub options: AnalysisOptions,
+    pub focus: Focus,
     pub created_at: String,
     pub expires_at: String,
     pub status: Status,
@@ -83,6 +93,7 @@ pub struct Inner {
 }
 pub struct AppState {
     pub config: Config,
+    pub separation: crate::separator::Availability,
     pub inner: Mutex<Inner>,
     pub notify: Notify,
     pub shutdown_token: CancellationToken,
@@ -130,7 +141,13 @@ impl AppState {
             std::process::id().to_string(),
         )
         .await?;
+        let check_dir = tempfile::Builder::new()
+            .prefix("check-")
+            .tempdir_in(root.path())?;
+        let separation = crate::separator::check(&config, check_dir.path()).await;
+        drop(check_dir);
         let state = Arc::new(Self {
+            separation,
             config,
             inner: Mutex::new(Inner {
                 jobs: HashMap::new(),
@@ -150,9 +167,20 @@ impl AppState {
     }
     pub async fn create(
         self: &Arc<Self>,
-        mut source: Source,
+        source: Source,
         options: AnalysisOptions,
     ) -> Result<Job, BackendError> {
+        self.create_focused(source, options, Focus::FullMix).await
+    }
+    pub async fn create_focused(
+        self: &Arc<Self>,
+        mut source: Source,
+        options: AnalysisOptions,
+        focus: Focus,
+    ) -> Result<Job, BackendError> {
+        if focus == Focus::Guitar && !self.separation.available {
+            return Err(BackendError::new("SEPARATOR_UNAVAILABLE"));
+        }
         if !options.concert_a_hz.is_finite() || !(432.0..=446.0).contains(&options.concert_a_hz) {
             return Err(BackendError::new("INVALID_REQUEST"));
         }
@@ -193,13 +221,11 @@ impl AppState {
             return Err(BackendError::new("QUEUE_FULL"));
         }
         // Reserve worst-case source + canonical PCM/playback, even for upload reservations.
-        let reserve = self.config.max_source_bytes
-            + self.config.max_duration_seconds as u64 * 24_000 * 6
-            + 4096;
+        let reserve = crate::separator::reservation(&self.config, focus);
         let mut disk = reserve;
         for r in inner.jobs.values() {
             disk += if !r.job.status.terminal() || r.busy {
-                reserve
+                crate::separator::reservation(&self.config, r.job.focus)
             } else {
                 crate::process::directory_bytes(r.dir.path()).await?
             };
@@ -236,6 +262,7 @@ impl AppState {
             id,
             source,
             options,
+            focus,
             created_at: iso(Duration::ZERO),
             expires_at: iso(self.config.retention),
             status,
@@ -340,17 +367,24 @@ impl AppState {
             let mut inner = self.inner.lock().await;
             let mut remove = Vec::new();
             for (id, r) in inner.jobs.iter_mut() {
+                // Waiting behind another job is a capacity problem; a lost lease is a timeout.
+                let queue_expired = r.job.status == Status::Queued
+                    && r.queued_at.elapsed() > self.config.queue_timeout;
                 if !r.job.status.terminal()
-                    && ((r.job.status == Status::Queued
-                        && r.queued_at.elapsed() > self.config.queue_timeout)
+                    && (queue_expired
                         || (!r.busy && r.lease.elapsed() > self.config.lease_timeout)
                         || (r.busy
                             && r.job.status != Status::AwaitingUpload
                             && r.lease.elapsed() > self.config.lease_timeout))
                 {
                     r.cancel.cancel();
+                    let code = if queue_expired {
+                        "QUEUE_FULL"
+                    } else {
+                        "PROCESSING_TIMEOUT"
+                    };
                     r.job.status = Status::Failed;
-                    r.job.error = Some(BackendError::new("PROCESSING_TIMEOUT").0);
+                    r.job.error = Some(BackendError::new(code).0);
                     r.finished_at = Some(Instant::now());
                     r.job.progress = Progress {
                         stage: "failed".into(),
@@ -415,14 +449,18 @@ impl AppState {
         }
     }
     async fn run_job(self: &Arc<Self>, id: Uuid) {
-        let (cancel, dir) = {
+        let (cancel, dir, focus) = {
             let inner = self.inner.lock().await;
             let r = &inner.jobs[&id];
-            (r.cancel.clone(), r.dir.path().to_owned())
+            (r.cancel.clone(), r.dir.path().to_owned(), r.job.focus)
         };
         let deadline_cancel = cancel.clone();
         let timer = tokio::spawn({
-            let limit = self.config.active_timeout;
+            let limit = if focus == Focus::Guitar {
+                self.config.guitar_active_timeout
+            } else {
+                self.config.active_timeout
+            };
             async move {
                 tokio::time::sleep(limit).await;
                 deadline_cancel.cancel();
@@ -461,16 +499,38 @@ impl AppState {
         };
         self.stage(id, Status::Decoding, "decoding").await;
         let decoded = decode_media(&source, dir, &self.config, cancel).await?;
-        tokio::fs::remove_file(source).await?;
+        let original_hash = decoded.pcm_sha256.clone();
+        let (mono, analyzed_audio) = if job.focus == Focus::Guitar {
+            self.stage(id, Status::Separating, "Separating guitar")
+                .await;
+            crate::separator::extract(
+                self,
+                id,
+                &source,
+                dir,
+                &decoded.mono,
+                &decoded.separator_pan,
+                cancel,
+            )
+            .await?
+        } else {
+            tokio::fs::remove_file(source).await?;
+            (
+                decoded.mono,
+                crate::separator::AnalyzedAudio::FullMix {
+                    pcm_sha256: original_hash.clone(),
+                },
+            )
+        };
         self.stage(id, Status::Analyzing, "analyzing").await;
         let options = job.options.clone();
         let token = cancel.clone();
         let progress = Arc::new(std::sync::atomic::AtomicU64::new(0));
         let worker_progress = progress.clone();
-        let total = decoded.mono.len() as u64;
+        let total = mono.len() as u64;
         let mut analysis = tokio::task::spawn_blocking(move || {
             analyze_song(
-                &decoded.mono,
+                &mono,
                 decoded.sample_rate_hz,
                 &options,
                 &|| token.is_cancelled(),
@@ -506,7 +566,7 @@ impl AppState {
         {
             return Err(BackendError::new("RESULT_TOO_COMPLEX"));
         }
-        let result=serde_json::to_vec(&serde_json::json!({"schemaVersion":1,"jobId":id,"source":job.source,"title":title,"pcmSha256":decoded.pcm_sha256,"analysis":output.result})).map_err(|_|BackendError::new("RESULT_TOO_COMPLEX"))?;
+        let result=serde_json::to_vec(&serde_json::json!({"schemaVersion":1,"jobId":id,"source":job.source,"title":title,"pcmSha256":original_hash,"focus":job.focus,"analyzedAudio":analyzed_audio,"analysis":output.result})).map_err(|_|BackendError::new("RESULT_TOO_COMPLEX"))?;
         let features = serde_json::to_vec(&output.features)
             .map_err(|_| BackendError::new("RESULT_TOO_COMPLEX"))?;
         if result.len() > 8 * 1024 * 1024 || features.len() > 8 * 1024 * 1024 {

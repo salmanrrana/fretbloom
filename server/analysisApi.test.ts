@@ -204,3 +204,21 @@ it('aborts the upstream upload when its client disconnects', async () => {
   upload.destroy()
   await disconnected
 }, 3000)
+
+it('guitar preview permits only GET/HEAD and carries the 30 MiB audio bound', async () => {
+  const target = await listen(
+    createServer((req, res) => {
+      expect(req.url).toBe(`/v1/jobs/${ID}/guitar-audio`)
+      res.writeHead(200, { 'Content-Type': 'audio/wav', 'Content-Length': 4 })
+      res.end('wave')
+    }),
+  )
+  const proxy = createAnalysisMiddleware({ origin: target })
+  const gateway = await listen(
+    createServer((req, res) => proxy(req, res, () => res.end())),
+  )
+  const url = `${gateway}/api/analysis/v1/jobs/${ID}/guitar-audio`
+  expect(await (await fetch(url)).text()).toBe('wave')
+  expect((await fetch(url, { method: 'HEAD' })).status).toBe(200)
+  expect((await fetch(url, { method: 'POST' })).status).toBe(405)
+})

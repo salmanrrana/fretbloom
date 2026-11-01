@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "declaredBeforeInference": "2026-11-01",
+  "purpose": "Development comparison only, no tuning or acceptance holdout",
+  "sources": ["GuitarSet 1.1.0 / 00_SS3-84-Bb_comp", "GuitarSet 1.1.0 / 01_Jazz3-150-C_comp"],
+  "selection": "Both full comp DEV recordings already declared in validation/real-audio/manifest.json; never inspect or run holdout",
+  "truth": "Original JAMS performed chords and per-string MIDI note intervals, unchanged",
+  "accompaniment": {"license": "CC0-1.0, locally authored synthesis dedicated by this validation script", "seed": 20261101, "parts": ["bass sine harmonics", "keys decaying triads", "noise kick/snare/hat", "lead sine with vibrato"], "harmony": "C major, A minor, F major, G major cycling every 4 seconds, deliberately independent of guitar", "rmsRelativeToGuitarDb": 0, "peakCeiling": 0.9},
+  "conditions": ["full_mix", "separated_guitar", "clean_guitar"],
+  "metrics": {"frameSeconds": 0.02, "chordRootAgreement": "correct root frames / nonempty performed-chord reference frames", "majorMinorAgreement": "correct root and maj/min frames / reference maj/min frames (extended reference chords excluded)", "noChordRate": "no_chord / all frames", "unknownRate": "unknown / all frames", "noteF1": "micro exact-MIDI frame-set F1 on union of mono/poly predictions; no octave forgiveness", "siSdr": "zero-mean scale-invariant SDR versus clean guitar after equal-length mono decode, no lag optimization"},
+  "controls": ["accompaniment-only guitar job", "wrong weights SHA256 startup", "cancel sleeping helper with grandchild", "repeat separated job determinism", "short clip windowed/unwindowed equality"],
+  "resources": "Six-minute input repeats first full mixed fixture then trims to exactly 360s; backend focus=guitar; local and runtime container --cpus=2 --memory=4g, sequential",
+  "report": "Per-fixture and pooled numerator/denominator counts, raw result and audio hashes, commands, wall/CPU/peak RSS/disk, failures retained. No required improvement threshold and no model/recognizer tuning."
+}

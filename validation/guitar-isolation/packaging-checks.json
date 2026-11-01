@@ -1,0 +1,58 @@
+[
+  {
+    "command": [
+      "npm",
+      "run",
+      "check:fast"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 18.156791659999726,
+    "log": "validation/guitar-isolation/runs/check-fast-final.log"
+  },
+  {
+    "command": [
+      "npm",
+      "run",
+      "setup:separator"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 1.8002047120007774,
+    "log": "validation/guitar-isolation/runs/setup-final.log"
+  },
+  {
+    "command": [
+      "docker",
+      "buildx",
+      "create",
+      "--name",
+      "fretbloom-guitar-builder",
+      "--driver",
+      "docker-container",
+      "--buildkitd-config",
+      "/home/xtra/code/personal_projects/fretbloom-song-audit/.tools/guitar-buildkit.toml"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 0.04547304300012911,
+    "log": "validation/guitar-isolation/runs/builder-create.log"
+  },
+  {
+    "command": [
+      "docker",
+      "buildx",
+      "build",
+      "--builder",
+      "fretbloom-guitar-builder",
+      "--no-cache",
+      "--load",
+      "--progress=plain",
+      "--tag",
+      "fretbloom-guitar-runtime:local",
+      "--metadata-file",
+      "/home/xtra/code/personal_projects/fretbloom-song-audit/validation/guitar-isolation/runs/build-metadata.json",
+      "."
+    ],
+    "exitCode": 130,
+    "wallSeconds": 229.80657051799972,
+    "log": "validation/guitar-isolation/runs/docker-build.log"
+  }
+]

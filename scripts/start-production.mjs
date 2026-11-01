@@ -132,6 +132,11 @@ export async function startFull({ development = false } = {}) {
     'FFMPEG_PATH',
     'FFPROBE_PATH',
     'FRETBLOOM_ANALYSIS_TEMP_ROOT',
+    'FRETBLOOM_SEPARATOR_PYTHON',
+    'FRETBLOOM_SEPARATOR_HELPER',
+    'FRETBLOOM_SEPARATOR_WEIGHTS',
+    'FRETBLOOM_SEPARATOR_THREADS',
+    'FRETBLOOM_SEPARATOR_MAX_RSS',
   ])
     if (process.env[key]) rustEnv[key] = process.env[key]
   const children = new Set()
@@ -206,7 +211,7 @@ export async function startFull({ development = false } = {}) {
   process.once('SIGTERM', terminate)
   try {
     launch(binary, [], rustEnv)
-    const until = Date.now() + 15_000
+    const until = Date.now() + 60_000
     let ready = false
     while (!stopping && Date.now() < until) {
       try {
@@ -227,7 +232,7 @@ export async function startFull({ development = false } = {}) {
     }
     if (!ready && !stopping)
       throw new Error(
-        'Private Rust backend did not become ready within 15 seconds.',
+        'Private Rust backend did not become ready within 60 seconds.',
       )
     if (!stopping) {
       const nodeEnv = {

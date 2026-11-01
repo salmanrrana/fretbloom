@@ -1,0 +1,9 @@
+{
+  "passed": true,
+  "samples": 1323000,
+  "lagSamples": 0,
+  "expectedSha256": "8f3fff4e4ef9e64c91ed9c960a3169e11469bd19e1ef4137251eb5d9fd3ecbf5",
+  "actualSha256": "8f3fff4e4ef9e64c91ed9c960a3169e11469bd19e1ef4137251eb5d9fd3ecbf5",
+  "wallSeconds": 47.250853873998494,
+  "peakRssKiB": 1429740
+}

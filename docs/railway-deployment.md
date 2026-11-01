@@ -85,3 +85,21 @@ Authorized`. Keep a separate copy of irreplaceable songs; the authenticated
   refuses to open Songbook on a static host without `/api/session`; publish it
   through Railway, and retire or restrict the older Netlify URL after moving
   any browser-only songs you want to keep.
+
+## Optional CPU guitar focus
+
+The runtime image installs the pinned offline Demucs guitar separator with
+`npm run setup:separator`. It runs as the existing non-root user and uses one
+worker. This feature needs gigabytes of RAM; a roughly 0.5 GB free service cannot
+run it. Provision at least 4 GiB RAM, two CPU cores and 1.5 GiB writable temporary
+space, with job deadlines measured in minutes. See
+[guitar isolation validation](guitar-isolation-validation.md) for exact local and
+container measurements and the separate-worker design. No deployment or hosted
+configuration changes are part of this implementation.
+
+The Demucs code license does not cover the model weights. The author's
+scientific-purpose statement does not establish permission for personal-app,
+public or paid deployment of this exact checkpoint. Clarify permission or replace
+the weights before deploying/distributing the packaged image. See the validation
+report's upstream sources. Missing or failed separation is shown explicitly;
+the owner can choose full-mix analysis instead.

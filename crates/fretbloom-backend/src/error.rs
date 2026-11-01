@@ -19,6 +19,18 @@ pub struct BackendError(pub ApiError);
 impl BackendError {
     pub fn new(code: &str) -> Self {
         let (message, retryable) = match code {
+            "SEPARATOR_UNAVAILABLE" => (
+                "Guitar separation is unavailable. Choose full mix explicitly to continue.",
+                false,
+            ),
+            "SEPARATION_FAILED" => (
+                "Guitar separation failed. No full-mix analysis was substituted.",
+                false,
+            ),
+            "SEPARATION_LIMIT" => (
+                "Guitar separation exceeded its memory or disk limit.",
+                false,
+            ),
             "INVALID_REQUEST" => ("The analysis request is invalid.", false),
             "SOURCE_TOO_LARGE" => ("The source exceeds the byte limit.", false),
             "UNSUPPORTED_MEDIA" => ("This single-file audio format is not supported.", false),
@@ -46,6 +58,8 @@ impl BackendError {
     }
     pub fn status(&self) -> StatusCode {
         match self.0.code.as_str() {
+            "SEPARATION_FAILED" => StatusCode::UNPROCESSABLE_ENTITY,
+            "SEPARATION_LIMIT" => StatusCode::INSUFFICIENT_STORAGE,
             "INVALID_REQUEST" => StatusCode::BAD_REQUEST,
             "SOURCE_TOO_LARGE" | "RESULT_TOO_COMPLEX" => StatusCode::PAYLOAD_TOO_LARGE,
             "UNSUPPORTED_MEDIA" => StatusCode::UNSUPPORTED_MEDIA_TYPE,

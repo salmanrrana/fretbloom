@@ -425,3 +425,40 @@ test('engine support does not bypass sheet, alignment version, source or PCM ass
     }
   }
 })
+
+test('legacy and new provenance survive parsing; full-mix relabeling is rejected', async () => {
+  const { parseSavedAudioAnalysis } = await import('./songbook')
+  const legacy = richTimedSong('rust-dsp-3.1').audioAnalysis!
+  expect(parseSavedAudioAnalysis(legacy).analyzedAudio).toBeUndefined()
+  const analyzedAudio = {
+    kind: 'guitar_stem',
+    pcmSha256: 'c'.repeat(64),
+    guitarLevelDb: -14,
+    separator: {
+      model: 'htdemucs_6s',
+      weightsSha256: 'b'.repeat(64),
+      package: 'demucs 4.1.0',
+      runtime: 'torch 2.8.0+cpu cpu',
+      shifts: 0,
+      overlap: 0.25,
+    },
+  }
+  expect(
+    parseSavedAudioAnalysis({ ...legacy, analyzedAudio }).analyzedAudio,
+  ).toEqual(analyzedAudio)
+  expect(() =>
+    parseSavedAudioAnalysis({
+      ...legacy,
+      analyzedAudio: { kind: 'full_mix', pcmSha256: 'f'.repeat(64) },
+    }),
+  ).toThrow()
+  saveSongbook([
+    {
+      ...richTimedSong('rust-dsp-3.1'),
+      syncSource: 'manual',
+      syncTimes: [1, 3],
+      audioAnalysis: parseSavedAudioAnalysis({ ...legacy, analyzedAudio }),
+    },
+  ])
+  expect(loadSongbook()[0].syncTimes).toEqual([1, 3])
+})

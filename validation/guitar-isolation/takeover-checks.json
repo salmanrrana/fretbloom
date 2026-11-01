@@ -1,0 +1,52 @@
+[
+  {
+    "command": [
+      "/home/xtra/code/personal_projects/fretbloom-song-audit/.tools/node-v24.22.2-linux-x64/bin/node",
+      "e2e-guitar-focus.mjs"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 17.176596786001028,
+    "log": "validation/guitar-isolation/runs/browser-closeout.log"
+  },
+  {
+    "command": [
+      "/home/xtra/code/personal_projects/fretbloom-song-audit/.tools/separator/bin/python",
+      "/home/xtra/code/personal_projects/fretbloom-song-audit/validation/guitar-isolation/window-check.py"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 48.250592395999774,
+    "log": "validation/guitar-isolation/runs/window-closeout.log"
+  },
+  {
+    "command": [
+      "/home/xtra/code/personal_projects/fretbloom-song-audit/.tools/separator/bin/python",
+      "/home/xtra/code/personal_projects/fretbloom-song-audit/validation/guitar-isolation/alignment-formats.py",
+      "/home/xtra/code/personal_projects/fretbloom-song-audit",
+      "/home/xtra/code/personal_projects/fretbloom-song-audit/validation/guitar-isolation/runs/alignment-formats"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 2.1580944809993525,
+    "log": "validation/guitar-isolation/runs/alignment-formats.json"
+  },
+  {
+    "command": [
+      "/home/xtra/code/personal_projects/fretbloom-song-audit/.tools/separator/bin/python",
+      "/home/xtra/code/personal_projects/fretbloom-song-audit/validation/guitar-isolation/alignment-control.py"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 0.42116428000008455,
+    "log": "validation/guitar-isolation/runs/alignment-closeout.log"
+  },
+  {
+    "command": [
+      "/home/xtra/.rustup/toolchains/1.89.0-x86_64-unknown-linux-gnu/bin/cargo",
+      "fmt",
+      "-p",
+      "fretbloom-backend",
+      "--check"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 0.09466422600053193,
+    "log": "validation/guitar-isolation/runs/rustfmt-closeout.log"
+  }
+]

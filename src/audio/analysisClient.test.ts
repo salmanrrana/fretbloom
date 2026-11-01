@@ -64,6 +64,8 @@ function backend(resultEngine = 'rust-dsp-1') {
         source,
         title: null,
         pcmSha256: 'a'.repeat(64),
+        focus: 'full_mix',
+        analyzedAudio: { kind: 'full_mix', pcmSha256: 'a'.repeat(64) },
         analysis: { ...analysis, engineVersion: resultEngine },
       })
     if (path.endsWith('/features'))

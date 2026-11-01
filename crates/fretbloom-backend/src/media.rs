@@ -15,12 +15,15 @@ pub struct DecodedMedia {
     pub playback_wav: PathBuf,
     pub pcm_sha256: String,
     pub warnings: Vec<AnalysisWarning>,
+    /// FFmpeg filter that gives the separator the same channel choice and level as `mono`:
+    /// true stereo for an ordinary 2-channel source, otherwise the mono mix in both channels.
+    pub separator_pan: String,
 }
 const DEMUXERS: &str = "wav,mp3,flac,ogg,mov,matroska,webm";
 fn args(values: &[&str]) -> Vec<OsString> {
     values.iter().map(OsString::from).collect()
 }
-fn input_args(source: &Path) -> Vec<OsString> {
+pub(crate) fn input_args(source: &Path) -> Vec<OsString> {
     let mut a = args(&[
         "-nostdin",
         "-xerror",
@@ -166,17 +169,21 @@ pub async fn decode_media(
             .unwrap_or(0);
         cancellation = energies[strongest] > 1e-10 && mixed_energy < energies[strongest] * 0.02;
     }
-    let pan = if cancellation {
+    let mix = if cancellation {
         warnings.push(AnalysisWarning { code: WarningCode::ChannelCancellation, message: "Opposite-phase channels would cancel; playback and analysis use the strongest channel.".into() });
-        format!("pan=mono|c0=c{strongest}")
+        format!("c{strongest}")
     } else {
-        format!(
-            "pan=mono|c0={}",
-            (0..channels)
-                .map(|n| format!("{}*c{n}", 1.0 / channels as f64))
-                .collect::<Vec<_>>()
-                .join("+")
-        )
+        (0..channels)
+            .map(|n| format!("{}*c{n}", 1.0 / channels as f64))
+            .collect::<Vec<_>>()
+            .join("+")
+    };
+    let pan = format!("pan=mono|c0={mix}");
+    // The separator later averages its two output channels, which reproduces `mix` exactly.
+    let separator_pan = if channels == 2 && !cancellation {
+        "pan=stereo|c0=c0|c1=c1".to_string()
+    } else {
+        format!("pan=stereo|c0={mix}|c1={mix}")
     };
     let mut a = input_args(source);
     a.extend(args(&[
@@ -237,10 +244,11 @@ pub async fn decode_media(
         playback_wav,
         pcm_sha256,
         warnings,
+        separator_pan,
     })
 }
 
-async fn write_playback(
+pub(crate) async fn write_playback(
     path: &Path,
     samples: &[f32],
     cancel: &CancellationToken,

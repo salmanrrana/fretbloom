@@ -21,7 +21,25 @@ export type PlaybackSource =
 export function useSongPlayback(
   source: PlaybackSource | null,
   analyzing: boolean,
+  guitarAudio?: Blob,
 ) {
+  const [hearGuitar, setHearGuitar] = useState(false)
+  const [guitarUrl, setGuitarUrl] = useState<string | null>(null)
+  const pendingSwitch = useRef<{
+    time: number
+    playing: boolean
+    rate: number
+  } | null>(null)
+  useEffect(() => {
+    setHearGuitar(false)
+    if (!guitarAudio) {
+      setGuitarUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(guitarAudio)
+    setGuitarUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [guitarAudio])
   const videoId = source?.kind === 'youtube' ? source.videoId : null
   const suppliedAudio = source?.audio ?? null
   const upload = source?.kind === 'upload'
@@ -71,6 +89,9 @@ export function useSongPlayback(
 
   useEffect(() => {
     if (!useAudio || analyzing || !hasSource) return
+    // A retry reloads the original song; the preview choice must not keep the old element.
+    setHearGuitar(false)
+    pendingSwitch.current = null
     setAudioUrl(null)
     setAudioError(null)
     setAudioReady(false)
@@ -185,7 +206,35 @@ export function useSongPlayback(
   return {
     iframeRef,
     audioRef,
-    audioUrl,
+    audioUrl: hearGuitar ? guitarUrl : audioUrl,
+    hearGuitar,
+    hasGuitar: guitarUrl !== null,
+    switchAudio: (guitar: boolean) => {
+      const element = audioRef.current
+      if (!element || guitar === hearGuitar) return
+      // Keep the first pending position: a second switch before metadata loads would read 0.
+      pendingSwitch.current ??= {
+        time: element.currentTime,
+        playing: !element.paused,
+        rate: element.playbackRate,
+      }
+      setHearGuitar(guitar)
+    },
+    restoreAudioPosition: () => {
+      const pending = pendingSwitch.current
+      const element = audioRef.current
+      if (!pending || !element) return
+      element.currentTime = pending.time
+      element.playbackRate = pending.rate
+      pendingSwitch.current = null
+      // Browsers need not emit pause when replacing an already-paused source.
+      setPlaying(pending.playing)
+      if (pending.playing)
+        void element.play().catch(() => {
+          setPlaying(false)
+          setAudioError('Press play to resume playback.')
+        })
+    },
     audioError,
     useAudio,
     videoProblem: (video.error !== null

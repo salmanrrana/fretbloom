@@ -11,7 +11,7 @@ const UUID =
   '[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}'
 const JOB = new RegExp(`^/jobs/${UUID}$`, 'i')
 const ARTIFACT = new RegExp(
-  `^/jobs/${UUID}/(result|features|audio|media)$`,
+  `^/jobs/${UUID}/(result|features|audio|guitar-audio|media)$`,
   'i',
 )
 const MAX_SOURCE = 50 * 1024 * 1024
@@ -85,7 +85,7 @@ export function createAnalysisMiddleware(options: Options = {}) {
             ? ['GET', 'DELETE']
             : artifact === 'media'
               ? ['PUT']
-              : artifact === 'audio'
+              : artifact === 'audio' || artifact === 'guitar-audio'
                 ? ['GET', 'HEAD']
                 : artifact
                   ? ['GET']
@@ -250,7 +250,7 @@ export function createAnalysisMiddleware(options: Options = {}) {
     })
     upstream.once('response', (incoming) => {
       const responseCap =
-        artifact === 'audio'
+        artifact === 'audio' || artifact === 'guitar-audio'
           ? 30 * 1024 * 1024
           : artifact === 'features'
             ? 8 * 1024 * 1024

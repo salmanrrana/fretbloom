@@ -87,6 +87,7 @@ export function SongVideo({
           ref={attachAudio}
           src={playback.audioUrl}
           preload="auto"
+          onLoadedMetadata={playback.restoreAudioPosition}
           onCanPlay={() => playback.setAudioReady(true)}
           onPlay={() => playback.setPlaying(true)}
           onPause={() => playback.setPlaying(false)}
@@ -143,6 +144,22 @@ export function SongTransport({
 
   return (
     <div className="song-transport">
+      {playback.hasGuitar && (
+        <label>
+          Hear:{' '}
+          <select
+            aria-label="Hear"
+            disabled={!playback.ready}
+            value={playback.hearGuitar ? 'guitar' : 'original'}
+            onChange={(event) =>
+              playback.switchAudio(event.target.value === 'guitar')
+            }
+          >
+            <option value="original">Original song</option>
+            <option value="guitar">Isolated guitar</option>
+          </select>
+        </label>
+      )}
       <button
         className="play-btn"
         disabled={!playback.ready}

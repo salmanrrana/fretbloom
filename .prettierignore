@@ -5,3 +5,6 @@ src/data/chords.ts
 src/generated/
 # Retained evaluation reports have recorded hashes and preserve original findings.
 docs/rust-*.md
+
+# Frozen guitar-evaluation evidence retains its recorded bytes.
+validation/guitar-isolation/*.json

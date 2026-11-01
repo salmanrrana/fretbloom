@@ -1,0 +1,304 @@
+{
+  "baseCommit": "a696d54809ee27b75679255a7f7a927e47de55c2",
+  "branch": "feat/guitar-isolation",
+  "note": "Task-only uncommitted files. Does not include unrelated research or ignored source/runs/build outputs. Inventory excludes its own hash.",
+  "files": {
+    "Dockerfile": {
+      "sha256": "e1931c54adad47d4cdf5003809765eedc2010b7508a090201aed2c0363570be5",
+      "bytes": 3102
+    },
+    "README.md": {
+      "sha256": "281da73433cd00939ec9f56f63083e3e3e963119cafd14d34ff92f532a2494bc",
+      "bytes": 20210
+    },
+    "crates/fretbloom-backend/src/api.rs": {
+      "sha256": "525cbd60c40aa0d9fc05f2b8360aa86ef2dc8d8afa1f43f5ac5b19ced66f5bb4",
+      "bytes": 13262
+    },
+    "crates/fretbloom-backend/src/config.rs": {
+      "sha256": "bffc15bf5c91a1e3c5cf3d349e611c3222b77ac685eb032797d05cf497376e6c",
+      "bytes": 7479
+    },
+    "crates/fretbloom-backend/src/error.rs": {
+      "sha256": "09e21d2961ef9580fc46060d007edd27dea2c32470067f970cb60c2fbf78ed41",
+      "bytes": 3929
+    },
+    "crates/fretbloom-backend/src/jobs.rs": {
+      "sha256": "48b661f0b7c4d47f4e6562f8a3f4f80a9ee24bc9faec50bf949fa1610fa9f87f",
+      "bytes": 27791
+    },
+    "crates/fretbloom-backend/src/lib.rs": {
+      "sha256": "9a3667f6713100f2958ae541f48ccdb1e46b9a0965568bc59c00171316b89380",
+      "bytes": 917
+    },
+    "crates/fretbloom-backend/src/media.rs": {
+      "sha256": "abc99a1e124557cee852c49e33df83678e7f529ca65de0fa127a59a77e68ecea",
+      "bytes": 9308
+    },
+    "crates/fretbloom-backend/src/process.rs": {
+      "sha256": "7c55296fd32c7a554c5ff6d116093162cdbd255cb845378265ca17bf940b49d2",
+      "bytes": 10730
+    },
+    "crates/fretbloom-backend/src/separator.rs": {
+      "sha256": "0a0a17b5706da32933ddc1d4dd6dd4083cce520335afcfaff893ee8c0e3384f9",
+      "bytes": 8500
+    },
+    "crates/fretbloom-backend/tests/guitar.rs": {
+      "sha256": "07ff2ead8e475639aae59e708f63b0b9f023ff066c846d5891150445432bb2dd",
+      "bytes": 12098
+    },
+    "crates/fretbloom-backend/tests/service.rs": {
+      "sha256": "f397f71b170e725b69061b0d79dfb9b58a729ba8817b0dc55c7dedc191c48c9d",
+      "bytes": 32269
+    },
+    "docs/guitar-isolation-plan.md": {
+      "sha256": "719047720e3a19ebd34a5be7858456a443b2bab7932dea8ab5d05d6442da977a",
+      "bytes": 15495
+    },
+    "docs/guitar-isolation-review.md": {
+      "sha256": "62d6d6d6c2430210fa96998ba4425ef8ac644d9f5f3adad380cce260ec6a6263",
+      "bytes": 10176
+    },
+    "docs/guitar-isolation-validation.md": {
+      "sha256": "091b1edaf44715ce1db094d8e1a30273adac7af147f1c5b6330e197bcd4dd876",
+      "bytes": 41517
+    },
+    "docs/railway-deployment.md": {
+      "sha256": "17b8eed88512d1a8f400fc3e500852e79aeec6d42f4adc957f41761a5d362458",
+      "bytes": 6763
+    },
+    "e2e-guitar-focus.mjs": {
+      "sha256": "0abf8b6f3c37b1c3e73f1a3bd36d5d268e8f4ab6df14c074f7fbec0cf69e10be",
+      "bytes": 9881
+    },
+    "package.json": {
+      "sha256": "0e351cad038c2a27461f835f07a609ce658b31c08a5bd31fc0ec9a303189479c",
+      "bytes": 1712
+    },
+    "scripts/separate-guitar.py": {
+      "sha256": "a279e98a996c1eb4a0c0ff31579acf5953e755547b0717fb11942379ffdd8c7b",
+      "bytes": 4452
+    },
+    "scripts/separator-requirements.lock": {
+      "sha256": "a1809e4d5f5dd7589b7c4516d39f514a9f25948734e2ccbec20eca14bf6876b3",
+      "bytes": 3577
+    },
+    "scripts/setup-separator.mjs": {
+      "sha256": "835df3edd21b95af445900541f67b9c2435b218123ef7b82f31e72b3ed11ffa6",
+      "bytes": 2557
+    },
+    "scripts/start-production.mjs": {
+      "sha256": "45714eca54b65734ce72a495ecea3c6027fafe78956a8e0f0deb2c9e2e1592d9",
+      "bytes": 8704
+    },
+    "server/analysisApi.test.ts": {
+      "sha256": "68d947543133e84fa410b2bc927e5dcccd3e724f4625152da41a42212cda4372",
+      "bytes": 7639
+    },
+    "server/analysisApi.ts": {
+      "sha256": "75b601f475087e1ceeab3b491a7f5c478794b3fd3b923c9b7dae4c1b7837c804",
+      "bytes": 9223
+    },
+    "src/audio/analysisClient.test.ts": {
+      "sha256": "4bb46fe6bfcc922b21ae3a14869ae4aef829d727effa519980c0d19f522733a5",
+      "bytes": 7186
+    },
+    "src/audio/analysisClient.ts": {
+      "sha256": "c44d4bf0a36b64a2068f1b25dafa391a024e03ada14fc76a0b80bafb72dcdbe1",
+      "bytes": 10665
+    },
+    "src/audio/songJob.test.ts": {
+      "sha256": "4c2e94f3e0054b6a977dc411f96c0b4e0423672888b9e3de952874551e2b325c",
+      "bytes": 1859
+    },
+    "src/audio/songJob.ts": {
+      "sha256": "d4ad01b47a34f41a719427961207ebd48f1a9c68ed1b5a27561aafc4857e3ed3",
+      "bytes": 4107
+    },
+    "src/components/AudioAnalysisPanel.tsx": {
+      "sha256": "c8d8f15984489e8d90a8d0f353d6686a0e235f44763262697ef08ffae0f1435a",
+      "bytes": 17982
+    },
+    "src/components/SongPlayback.tsx": {
+      "sha256": "e2aa644bc14a47d2d3cdd57182e21396be12216c57263e1ff65025a05f1a4135",
+      "bytes": 6827
+    },
+    "src/components/SongbookPlayer.tsx": {
+      "sha256": "67b6ca5c191e8c573b4e07dbf352ec53eb13a09f22f30f9a9c1c2985b5b9b74f",
+      "bytes": 44400
+    },
+    "src/components/useSongPlayback.ts": {
+      "sha256": "175400084e7d9f2eaf738e808555d413c96e9013cf8a81e010d49fc8c2c96b37",
+      "bytes": 8088
+    },
+    "src/data/songbook.test.ts": {
+      "sha256": "f9b8e85e15a1d5994a7eca2ec73b29b478b415e1af9b5168ac4896d229a2bbf5",
+      "bytes": 14103
+    },
+    "src/data/songbook.ts": {
+      "sha256": "99861a2032d79c5863df55850d7b9ffa3f29e7dbc9b515319555ee027875f528",
+      "bytes": 11161
+    },
+    "validation/guitar-isolation/alignment-control.json": {
+      "sha256": "32042c6a8b2cc1f1b59195f1fdf609f41a568520e77436335344ac41724fa3fd",
+      "bytes": 3172
+    },
+    "validation/guitar-isolation/alignment-control.py": {
+      "sha256": "19037042fba6e13d4a267fdb9ebd33f75529f951d048bafd6ab660b2c01c411f",
+      "bytes": 3853
+    },
+    "validation/guitar-isolation/alignment-formats.py": {
+      "sha256": "a9ae168448ea920224bfa3176904ea552f2fcb67ebbc3ace04db4cea975a05f0",
+      "bytes": 4968
+    },
+    "validation/guitar-isolation/buildkit.toml": {
+      "sha256": "a06d96d0fb1154d6b460f53eecb2a9141366ef955e1bed931a0c27b673452d14",
+      "bytes": 35
+    },
+    "validation/guitar-isolation/capability.json": {
+      "sha256": "ef810d42b5f65949c1f77b27cb5b0f2bdf49a3bd3ce80fbd93e9d78adc362dac",
+      "bytes": 799
+    },
+    "validation/guitar-isolation/changes.json": {
+      "sha256": "a8e382ed5ae2d1a1ef86f535bf0b35f364f972e0df28a28441e9177048ae4da2",
+      "bytes": 8203
+    },
+    "validation/guitar-isolation/checks.json": {
+      "sha256": "3bbc55437c432824134b36bc636ecc43583466f97ae0be0be8814196cac0905e",
+      "bytes": 1293
+    },
+    "validation/guitar-isolation/checks.py": {
+      "sha256": "ff26157cd12f8efdeda2b72ce7d71acb3f2f414cd9e7db486825f3e9d4c0d694",
+      "bytes": 1189
+    },
+    "validation/guitar-isolation/cleanup-fix-audio-parity.json": {
+      "sha256": "85d1a858aefc90a9d4afb9577af4a33515229bcb97d8a01d3127dd7e46dfc9a9",
+      "bytes": 925
+    },
+    "validation/guitar-isolation/cleanup.json": {
+      "sha256": "6031f9dc141ac81cd65bc7d1dd83e378ed7179fcb86e402bae3255515d56c5ea",
+      "bytes": 586
+    },
+    "validation/guitar-isolation/cleanup.py": {
+      "sha256": "de315d7c09ae514b2d71572e614940229c09b30d68d4b991ce47714eeb1dff71",
+      "bytes": 2734
+    },
+    "validation/guitar-isolation/container-job.mjs": {
+      "sha256": "1a61db8419832e89c961b632695221905479e9ca52c1e56400c36221b8e753b7",
+      "bytes": 2541
+    },
+    "validation/guitar-isolation/container-proof.py": {
+      "sha256": "f55ace68cfad13eccafd26936531dffe631b0913b61307096cea66b667bab6b1",
+      "bytes": 2923
+    },
+    "validation/guitar-isolation/container-summary.json": {
+      "sha256": "29654bf2d55a0a029c772936f349a9cf8975eafafe577cc1a145155fda2158c5",
+      "bytes": 1986
+    },
+    "validation/guitar-isolation/evaluation.json": {
+      "sha256": "46dafd8599a85174fdb151c816025353c83ea9d3702de1c97acc9f131c6dcd2d",
+      "bytes": 9513
+    },
+    "validation/guitar-isolation/failure-controls.json": {
+      "sha256": "e91943b4a5a0e30cd7b25a3d18b192bced0d9145e24d6019c618f1f88d656c4e",
+      "bytes": 2847
+    },
+    "validation/guitar-isolation/failure-controls.py": {
+      "sha256": "9b7abe5b673e8a17b01f5b2f7a79c4dc953a25e6085ec5f4f4e8c02fb1150213",
+      "bytes": 5059
+    },
+    "validation/guitar-isolation/final-closeout.json": {
+      "sha256": "851d2fc142a0a2cdeba671eac23d906f84cd3cf295adb4f7c53cf742995a72af",
+      "bytes": 1110
+    },
+    "validation/guitar-isolation/final-proof.json": {
+      "sha256": "97a72deddec52127b0d400329685c4b4f728fef70d6dc083fa66d27d8cac8f7e",
+      "bytes": 2746
+    },
+    "validation/guitar-isolation/final-proof.py": {
+      "sha256": "c2fc47d30a6c0fb0137b2d841a63df89e50bba4accee91f90db826183c92a802",
+      "bytes": 3054
+    },
+    "validation/guitar-isolation/fixtures.json": {
+      "sha256": "19de7690e35e3c8422bee01e95e7d051fe9b1bcd764cc9a8f1832c21c534754c",
+      "bytes": 70324
+    },
+    "validation/guitar-isolation/identities.json": {
+      "sha256": "c689c2b1c8c416165718c44aa060c95fa153de6f7f9f05cf0c60388ea3bf6290",
+      "bytes": 6973
+    },
+    "validation/guitar-isolation/lead-review-evidence.json": {
+      "sha256": "d799e14c267bd1be189a114c8875782f8967d856bc3709b56c34ac0ff8fff336",
+      "bytes": 6869
+    },
+    "validation/guitar-isolation/long-local.json": {
+      "sha256": "784b3f41dae5a2c8dbc3810231264c7c7b39adc2d0254929fd1bcf9a167249f3",
+      "bytes": 937
+    },
+    "validation/guitar-isolation/observations.json": {
+      "sha256": "dbc9285e146d206fa2a21f92dc194631df7073b6e3e3c5ed04eac84b7ed29106",
+      "bytes": 940
+    },
+    "validation/guitar-isolation/observations.py": {
+      "sha256": "fa2c6f1cf8bd16814949f8fd5af1f05bb51cc5ae2828a6048f053dfce21f0677",
+      "bytes": 1811
+    },
+    "validation/guitar-isolation/package-proof.py": {
+      "sha256": "975258a85a76923acc2e472bcadfc7348954dd359c983983eddeec3af0e1e65e",
+      "bytes": 1437
+    },
+    "validation/guitar-isolation/packaged-artifacts.json": {
+      "sha256": "2197bd1970e15d6378557e32e8f0463176bf7f2610ceb59e16208575ffdd22ef",
+      "bytes": 2114
+    },
+    "validation/guitar-isolation/packaging-checks.json": {
+      "sha256": "e3ea8ae4827a3f981d87558367d10a4a3a46c852a988ea8363d5856d30231ebd",
+      "bytes": 1351
+    },
+    "validation/guitar-isolation/predeclared.json": {
+      "sha256": "5aae4975a2b310c5b040881b9efb7930ee08dadccc20a55c720c912e2b1ddb35",
+      "bytes": 2059
+    },
+    "validation/guitar-isolation/prepare.py": {
+      "sha256": "a031ad452e7a0e76682a18b4a63e249116ff60d0c483c54d6b25610c392f51c3",
+      "bytes": 3426
+    },
+    "validation/guitar-isolation/report.py": {
+      "sha256": "0ebc53bb21aa231298db58eab0eec2e9e608a155c7f243847243a8b079971eba",
+      "bytes": 11676
+    },
+    "validation/guitar-isolation/run.py": {
+      "sha256": "82030e46117cb55b98399752634a4f900fea3ca5bbd5ed9be93284c4e595d9a0",
+      "bytes": 9250
+    },
+    "validation/guitar-isolation/takeover-checks.json": {
+      "sha256": "0be4ea8cc4a2605438648e7d32af2ec3492c480fd814e59ffb9d29910bedd8aa",
+      "bytes": 1866
+    },
+    "validation/guitar-isolation/takeover-checks.py": {
+      "sha256": "b2c81745474434746397b756720d3a9da98fa5acc1e914f217d95cb8efa8e44c",
+      "bytes": 1877
+    },
+    "validation/guitar-isolation/takeover-source.json": {
+      "sha256": "57940bad3e60d707e18ae62598acfe2b1dea33a5652992606dc0b752f848e38b",
+      "bytes": 6813
+    },
+    "validation/guitar-isolation/ui-detector.json": {
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "bytes": 3
+    },
+    "validation/guitar-isolation/window-check.json": {
+      "sha256": "ca126596393451f1ea67c879b8053a92095a3135298b609170a10a75a5879fbc",
+      "bytes": 297
+    },
+    "validation/guitar-isolation/window-check.py": {
+      "sha256": "27b653d35df30c450973dd343e6b18c55d2b986cc5342d9e7198e131cfec07aa",
+      "bytes": 2094
+    },
+    ".prettierignore": {
+      "sha256": "a327fba63f228ead222593f551dd9b4af475541571c4e942645257b9772c2869",
+      "bytes": 416
+    }
+  },
+  "integrationNote": "Repository-required formatting applied to source/docs before commit. Frozen evaluation JSON bytes unchanged. Original reviewed inventory archived locally under target/guitar-main-deploy/reviewed-source-inventory.json."
+}

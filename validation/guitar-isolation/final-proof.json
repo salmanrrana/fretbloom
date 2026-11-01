@@ -1,0 +1,88 @@
+[
+  {
+    "command": [
+      "/home/xtra/code/personal_projects/fretbloom-song-audit/.tools/separator/bin/python",
+      "/home/xtra/code/personal_projects/fretbloom-song-audit/validation/guitar-isolation/failure-controls.py"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 2.1980495670013624,
+    "log": "validation/guitar-isolation/runs/failure-controls.log"
+  },
+  {
+    "command": [
+      "/home/xtra/code/personal_projects/fretbloom-song-audit/.tools/node-v24.22.2-linux-x64/bin/node",
+      "e2e-guitar-focus.mjs"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 16.541091200000665,
+    "log": "validation/guitar-isolation/runs/browser.log"
+  },
+  {
+    "command": [
+      "/home/xtra/code/personal_projects/fretbloom-song-audit/.tools/separator/bin/python",
+      "/home/xtra/code/personal_projects/fretbloom-song-audit/validation/guitar-isolation/run.py"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 180.0312272529991,
+    "log": "validation/guitar-isolation/runs/evaluation.log"
+  },
+  {
+    "command": [
+      "/home/xtra/code/personal_projects/fretbloom-song-audit/.tools/separator/bin/python",
+      "/home/xtra/code/personal_projects/fretbloom-song-audit/validation/guitar-isolation/observations.py"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 0.40973685099925206,
+    "log": "validation/guitar-isolation/runs/observations.log"
+  },
+  {
+    "command": [
+      "/home/xtra/code/personal_projects/fretbloom-song-audit/.tools/separator/bin/python",
+      "/home/xtra/code/personal_projects/fretbloom-song-audit/validation/guitar-isolation/run.py",
+      "--long"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 431.0666339870004,
+    "log": "validation/guitar-isolation/runs/long-local.log"
+  },
+  {
+    "command": [
+      "docker",
+      "buildx",
+      "build",
+      "--builder",
+      "fretbloom-guitar-builder",
+      "--no-cache",
+      "--load",
+      "--progress=plain",
+      "--tag",
+      "fretbloom-guitar-runtime:local",
+      "--metadata-file",
+      "/home/xtra/code/personal_projects/fretbloom-song-audit/validation/guitar-isolation/runs/build-metadata.json",
+      "."
+    ],
+    "exitCode": 0,
+    "wallSeconds": 440.46923795099974,
+    "log": "validation/guitar-isolation/runs/docker-build.log"
+  },
+  {
+    "command": [
+      "docker",
+      "buildx",
+      "rm",
+      "fretbloom-guitar-builder"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 2.7054629829999612,
+    "log": "validation/guitar-isolation/runs/builder-cleanup.log"
+  },
+  {
+    "command": [
+      "/usr/bin/python3",
+      "/home/xtra/code/personal_projects/fretbloom-song-audit/validation/guitar-isolation/container-proof.py"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 385.8700901960001,
+    "log": "validation/guitar-isolation/runs/container-proof.log"
+  }
+]

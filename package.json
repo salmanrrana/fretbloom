@@ -14,6 +14,7 @@
     "check:staged": "node scripts/check-staged.mjs",
     "prepare": "node scripts/install-hooks.mjs",
     "preview": "vite preview",
+    "setup:separator": "node scripts/setup-separator.mjs",
     "setup:youtube": "node scripts/setup-youtube.mjs",
     "start": "node server/index.ts",
     "test:youtube": "node e2e-youtube-sync.mjs",

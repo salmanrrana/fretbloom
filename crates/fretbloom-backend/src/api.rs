@@ -1,5 +1,5 @@
 use crate::{
-    jobs::{Job, Progress, Source, Status},
+    jobs::{Focus, Job, Progress, Source, Status},
     AppState, BackendError,
 };
 use axum::{
@@ -29,6 +29,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/v1/jobs/{id}/result", get(result))
         .route("/v1/jobs/{id}/features", get(features))
         .route("/v1/jobs/{id}/audio", get(audio))
+        .route("/v1/jobs/{id}/guitar-audio", get(guitar_audio))
         .fallback(|| async { BackendError::new("INVALID_REQUEST") })
         .layer(axum::middleware::map_response(
             |mut response: Response| async move {
@@ -45,7 +46,7 @@ pub fn router(state: Arc<AppState>) -> Router {
 }
 async fn capabilities(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     Json(
-        serde_json::json!({"schemaVersion":1,"engineVersion":ENGINE_VERSION,"modes":["auto","monophonic","polyphonic"],"qualities":chord_vocabulary().iter().map(|t|t.quality).collect::<Vec<_>>(),"limits":{"maxSourceBytes":state.config.max_source_bytes,"maxDurationSeconds":state.config.max_duration_seconds},"uploads":true,"youtube":true}),
+        serde_json::json!({"schemaVersion":1,"engineVersion":ENGINE_VERSION,"modes":["auto","monophonic","polyphonic"],"qualities":chord_vocabulary().iter().map(|t|t.quality).collect::<Vec<_>>(),"limits":{"maxSourceBytes":state.config.max_source_bytes,"maxDurationSeconds":state.config.max_duration_seconds},"uploads":true,"youtube":true,"separation":state.separation}),
     )
 }
 #[derive(Deserialize, Default)]
@@ -59,6 +60,8 @@ struct PartialOptions {
 #[serde(deny_unknown_fields)]
 struct Create {
     source: Source,
+    #[serde(default)]
+    focus: Focus,
     #[serde(default)]
     options: PartialOptions,
 }
@@ -81,13 +84,14 @@ async fn create(
         serde_json::from_slice(&bytes).map_err(|_| BackendError::new("INVALID_REQUEST"))?;
     let defaults = AnalysisOptions::default();
     let job = state
-        .create(
+        .create_focused(
             input.source,
             AnalysisOptions {
                 mode: input.options.mode.unwrap_or(defaults.mode),
                 concert_a_hz: input.options.concert_a_hz.unwrap_or(defaults.concert_a_hz),
                 spelling: input.options.spelling.unwrap_or(defaults.spelling),
             },
+            input.focus,
         )
         .await?;
     let location = format!("/api/analysis/v1/jobs/{}", job.id);
@@ -305,6 +309,23 @@ async fn audio(
     method: Method,
     headers: HeaderMap,
 ) -> Result<Response, BackendError> {
+    audio_artifact(s, raw, method, headers, false).await
+}
+async fn guitar_audio(
+    State(s): State<Arc<AppState>>,
+    Path(raw): Path<String>,
+    method: Method,
+    headers: HeaderMap,
+) -> Result<Response, BackendError> {
+    audio_artifact(s, raw, method, headers, true).await
+}
+async fn audio_artifact(
+    s: Arc<AppState>,
+    raw: String,
+    method: Method,
+    headers: HeaderMap,
+    guitar: bool,
+) -> Result<Response, BackendError> {
     let id = id(&raw)?;
     // Open while holding the record lock; expiry cannot race the open. Existing reads keep their file descriptor.
     let mut file = {
@@ -314,7 +335,15 @@ async fn audio(
             .get(&id)
             .ok_or_else(|| BackendError::new("JOB_NOT_FOUND"))?;
         ready(r.job.status)?;
-        tokio::fs::File::open(r.dir.path().join("playback.wav")).await?
+        if guitar && r.job.focus != Focus::Guitar {
+            return Err(BackendError::new("INVALID_REQUEST"));
+        }
+        tokio::fs::File::open(
+            r.dir
+                .path()
+                .join(if guitar { "guitar.wav" } else { "playback.wav" }),
+        )
+        .await?
     };
     let size = file.metadata().await?.len();
     let range = if let Some(raw) = headers.get("range") {

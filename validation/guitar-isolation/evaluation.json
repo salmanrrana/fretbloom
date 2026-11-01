@@ -1,0 +1,283 @@
+[
+  {
+    "name": "00_SS3-84-Bb_comp-full_mix",
+    "inputSha256": "dc4a1743ee11efa8347165e563385e2e437966b4f5332f8914d1deb43569be5e",
+    "focus": "full_mix",
+    "wallSeconds": 1.0331447340013256,
+    "cpuSeconds": 0.81,
+    "peakTreeRssBytes": 17719296,
+    "peakJobDiskBytes": 2194014,
+    "resultSha256": "61fd09575b991e13ea824dc3475a87d2ad301dd0b9d6f90065ea117634d16914",
+    "analyzedAudio": {
+      "kind": "full_mix",
+      "pcmSha256": "af69787ecb0ea07dae2d106123dc9ea0ec6c3ffa9f6781fc4e9b84c5852c5e6e"
+    },
+    "pcmSha256": "af69787ecb0ea07dae2d106123dc9ea0ec6c3ffa9f6781fc4e9b84c5852c5e6e",
+    "scores": {
+      "frames": 2286,
+      "rootCorrect": 331,
+      "rootFrames": 2286,
+      "majorMinorCorrect": 117,
+      "majorMinorFrames": 2000,
+      "noChord": 306,
+      "unknown": 1509,
+      "noteTp": 2681,
+      "notePred": 6328,
+      "noteRef": 6063
+    },
+    "siSdrDb": 0.022555727338039018
+  },
+  {
+    "name": "00_SS3-84-Bb_comp-separated_guitar",
+    "inputSha256": "dc4a1743ee11efa8347165e563385e2e437966b4f5332f8914d1deb43569be5e",
+    "focus": "guitar",
+    "wallSeconds": 39.60490917700008,
+    "cpuSeconds": 76.88,
+    "peakTreeRssBytes": 1512783872,
+    "peakJobDiskBytes": 18319793,
+    "resultSha256": "e633a4992488ad793a07a5b5fd21b608868fe87afa2afa96e918e8f77df06266",
+    "analyzedAudio": {
+      "guitarLevelDb": -2.6935000743367055,
+      "kind": "guitar_stem",
+      "pcmSha256": "994fda878bab08649491777b00fecdb2a3cab4868e71ccd015ea8e3cc589bdc6",
+      "separator": {
+        "model": "htdemucs_6s",
+        "overlap": 0.25,
+        "package": "demucs 4.1.0",
+        "runtime": "torch 2.8.0+cpu cpu",
+        "shifts": 0,
+        "weightsSha256": "34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd"
+      }
+    },
+    "pcmSha256": "af69787ecb0ea07dae2d106123dc9ea0ec6c3ffa9f6781fc4e9b84c5852c5e6e",
+    "scores": {
+      "frames": 2286,
+      "rootCorrect": 386,
+      "rootFrames": 2286,
+      "majorMinorCorrect": 126,
+      "majorMinorFrames": 2000,
+      "noChord": 63,
+      "unknown": 1435,
+      "noteTp": 3823,
+      "notePred": 8355,
+      "noteRef": 6063
+    },
+    "siSdrDb": 9.436729250861896
+  },
+  {
+    "name": "00_SS3-84-Bb_comp-clean_guitar",
+    "inputSha256": "43c92356e8104f470f2ce7b70e4dc2a58c71b551f8e3436c0e7b693b0e38dd7e",
+    "focus": "full_mix",
+    "wallSeconds": 1.5355106700008037,
+    "cpuSeconds": 1.1700000000000017,
+    "peakTreeRssBytes": 39378944,
+    "peakJobDiskBytes": 2194014,
+    "resultSha256": "6994ecc7470cfb0e63ec6597c0f6951960df3e235dd06262f8707f7dd79b2ead",
+    "analyzedAudio": {
+      "kind": "full_mix",
+      "pcmSha256": "96f45dd5ed6e1508edc1e38d61bfddfcdfe5409923374bfb7485e64c60083fcf"
+    },
+    "pcmSha256": "96f45dd5ed6e1508edc1e38d61bfddfcdfe5409923374bfb7485e64c60083fcf",
+    "scores": {
+      "frames": 2286,
+      "rootCorrect": 578,
+      "rootFrames": 2286,
+      "majorMinorCorrect": 292,
+      "majorMinorFrames": 2000,
+      "noChord": 587,
+      "unknown": 999,
+      "noteTp": 3919,
+      "notePred": 5836,
+      "noteRef": 6063
+    }
+  },
+  {
+    "name": "00_SS3-84-Bb_comp-negative",
+    "inputSha256": "a9545c243e0605d4f845a5c62e0c13ceb756cd401e134bad43f370b73517a283",
+    "focus": "guitar",
+    "wallSeconds": 40.61259349500142,
+    "cpuSeconds": 78.89999999999999,
+    "peakTreeRssBytes": 1451773952,
+    "peakJobDiskBytes": 18319793,
+    "resultSha256": "0da70a1150404b1c909e9b6717dc57ce2a0d5114d8ab90746e2d6719a7c6c207",
+    "analyzedAudio": {
+      "guitarLevelDb": -42.73496169925424,
+      "kind": "guitar_stem",
+      "pcmSha256": "f5e57068c05490e2b1bb9af3e2936073253ba308579cb95173cf991459209b7f",
+      "separator": {
+        "model": "htdemucs_6s",
+        "overlap": 0.25,
+        "package": "demucs 4.1.0",
+        "runtime": "torch 2.8.0+cpu cpu",
+        "shifts": 0,
+        "weightsSha256": "34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd"
+      }
+    },
+    "pcmSha256": "52c293bc9c75ce9ff57f7dac5935aa086664d01c65ae21f440046765cf6bd8d4",
+    "scores": {
+      "frames": 2286,
+      "rootCorrect": 0,
+      "rootFrames": 0,
+      "majorMinorCorrect": 0,
+      "majorMinorFrames": 0,
+      "noChord": 276,
+      "unknown": 1433,
+      "noteTp": 0,
+      "notePred": 5674,
+      "noteRef": 0
+    }
+  },
+  {
+    "name": "01_Jazz3-150-C_comp-full_mix",
+    "inputSha256": "ac6c5caf44670894b420715c0131dbdab5e320419ce3af041ed97686f4a079e1",
+    "focus": "full_mix",
+    "wallSeconds": 1.02247937500033,
+    "cpuSeconds": 0.6100000000000136,
+    "peakTreeRssBytes": 56942592,
+    "peakJobDiskBytes": 2257970,
+    "resultSha256": "5ba62d0946c6e06ae3e769f456f2ab3ca198fe714ce7e5c9d1c22e81f864c20f",
+    "analyzedAudio": {
+      "kind": "full_mix",
+      "pcmSha256": "f3488ba65d53fb1f7cbf22fef85fa884d37cbf00806b14c8b159e83b28e6af20"
+    },
+    "pcmSha256": "f3488ba65d53fb1f7cbf22fef85fa884d37cbf00806b14c8b159e83b28e6af20",
+    "scores": {
+      "frames": 1280,
+      "rootCorrect": 103,
+      "rootFrames": 1280,
+      "majorMinorCorrect": 64,
+      "majorMinorFrames": 1280,
+      "noChord": 427,
+      "unknown": 738,
+      "noteTp": 669,
+      "notePred": 2693,
+      "noteRef": 1557
+    },
+    "siSdrDb": -0.03577199810134573
+  },
+  {
+    "name": "01_Jazz3-150-C_comp-separated_guitar",
+    "inputSha256": "ac6c5caf44670894b420715c0131dbdab5e320419ce3af041ed97686f4a079e1",
+    "focus": "guitar",
+    "wallSeconds": 27.072866337999585,
+    "cpuSeconds": 52.03,
+    "peakTreeRssBytes": 1407557632,
+    "peakJobDiskBytes": 10260669,
+    "resultSha256": "71b4ad9f38394b055fbde19985b416b41b43c7278da5c8f7a4d7d90b6a3ddfbc",
+    "analyzedAudio": {
+      "guitarLevelDb": -2.8890859467523686,
+      "kind": "guitar_stem",
+      "pcmSha256": "9a747f2bee05af8fce690573f8dde16eb1dc20232cec34b53074231a6540bb8e",
+      "separator": {
+        "model": "htdemucs_6s",
+        "overlap": 0.25,
+        "package": "demucs 4.1.0",
+        "runtime": "torch 2.8.0+cpu cpu",
+        "shifts": 0,
+        "weightsSha256": "34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd"
+      }
+    },
+    "pcmSha256": "f3488ba65d53fb1f7cbf22fef85fa884d37cbf00806b14c8b159e83b28e6af20",
+    "scores": {
+      "frames": 1280,
+      "rootCorrect": 173,
+      "rootFrames": 1280,
+      "majorMinorCorrect": 67,
+      "majorMinorFrames": 1280,
+      "noChord": 277,
+      "unknown": 703,
+      "noteTp": 1094,
+      "notePred": 3418,
+      "noteRef": 1557
+    },
+    "siSdrDb": 10.961861380441452
+  },
+  {
+    "name": "01_Jazz3-150-C_comp-clean_guitar",
+    "inputSha256": "c48d26506e07847963b9cc12c46a707821757f02ff8e4d3b2efe79383b48f602",
+    "focus": "full_mix",
+    "wallSeconds": 1.024620557000162,
+    "cpuSeconds": 0.789999999999992,
+    "peakTreeRssBytes": 62971904,
+    "peakJobDiskBytes": 1228850,
+    "resultSha256": "144da062288d8079744cd0abecc793bed68f6c6e85db23d2fcc84a87f6af0631",
+    "analyzedAudio": {
+      "kind": "full_mix",
+      "pcmSha256": "4d9e47ec6a7fdc2f2c5fa2b972e336581cde3954e4069af486685e0b5b5c0498"
+    },
+    "pcmSha256": "4d9e47ec6a7fdc2f2c5fa2b972e336581cde3954e4069af486685e0b5b5c0498",
+    "scores": {
+      "frames": 1280,
+      "rootCorrect": 105,
+      "rootFrames": 1280,
+      "majorMinorCorrect": 17,
+      "majorMinorFrames": 1280,
+      "noChord": 508,
+      "unknown": 645,
+      "noteTp": 1170,
+      "notePred": 2554,
+      "noteRef": 1557
+    }
+  },
+  {
+    "name": "01_Jazz3-150-C_comp-negative",
+    "inputSha256": "78b60e78d4cce15eff723b588931fdc55a79216dbe3c97a9f69f819d8218bc29",
+    "focus": "guitar",
+    "wallSeconds": 28.08608324799934,
+    "cpuSeconds": 54.46000000000001,
+    "peakTreeRssBytes": 1459892224,
+    "peakJobDiskBytes": 10260669,
+    "resultSha256": "cb956986c9097a11c0698f4b2402c17393d591688e2c008dd0edff31b67365e8",
+    "analyzedAudio": {
+      "guitarLevelDb": -48.906869157262356,
+      "kind": "guitar_stem",
+      "pcmSha256": "d60bd616fe55a2e6a74cd17d7937910899553744b0f2301bd3620cd6778450cb",
+      "separator": {
+        "model": "htdemucs_6s",
+        "overlap": 0.25,
+        "package": "demucs 4.1.0",
+        "runtime": "torch 2.8.0+cpu cpu",
+        "shifts": 0,
+        "weightsSha256": "34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd"
+      }
+    },
+    "pcmSha256": "2d0ce61d269c65fdace8190c2e805ede2547710aaa8b1d570f3c11cc53bf2dca",
+    "scores": {
+      "frames": 1280,
+      "rootCorrect": 0,
+      "rootFrames": 0,
+      "majorMinorCorrect": 0,
+      "majorMinorFrames": 0,
+      "noChord": 184,
+      "unknown": 724,
+      "noteTp": 0,
+      "notePred": 3073,
+      "noteRef": 0
+    }
+  },
+  {
+    "name": "determinism-repeat",
+    "inputSha256": "dc4a1743ee11efa8347165e563385e2e437966b4f5332f8914d1deb43569be5e",
+    "focus": "guitar",
+    "wallSeconds": 37.6104817939995,
+    "cpuSeconds": 74.00999999999999,
+    "peakTreeRssBytes": 1522372608,
+    "peakJobDiskBytes": 18319793,
+    "resultSha256": "23fac3eab75952e6a82a2e18eaf6f392c2f7ea64702fa38193a3a73bb567d7af",
+    "analyzedAudio": {
+      "guitarLevelDb": -2.6935000743367055,
+      "kind": "guitar_stem",
+      "pcmSha256": "994fda878bab08649491777b00fecdb2a3cab4868e71ccd015ea8e3cc589bdc6",
+      "separator": {
+        "model": "htdemucs_6s",
+        "overlap": 0.25,
+        "package": "demucs 4.1.0",
+        "runtime": "torch 2.8.0+cpu cpu",
+        "shifts": 0,
+        "weightsSha256": "34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd"
+      }
+    },
+    "pcmSha256": "af69787ecb0ea07dae2d106123dc9ea0ec6c3ffa9f6781fc4e9b84c5852c5e6e",
+    "matchesAnalyzedHash": true
+  }
+]

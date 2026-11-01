@@ -1,0 +1,20 @@
+[
+  {
+    "id": "00_SS3-84-Bb_comp",
+    "projectionOnClean": 0.9825616298931694,
+    "projectionOnAccompaniment": 0.1309430119543066,
+    "truthNoteFramesRecognizedOnClean": 3918,
+    "thoseMissingAfterSeparation": 353,
+    "falseNoteFramesAfterSeparation": 4530,
+    "interpretation": "Linear projection and recognizer-frame observations only; not human listening or acoustic note adjudication. Negative control separately measures bleed with no guitar present."
+  },
+  {
+    "id": "01_Jazz3-150-C_comp",
+    "projectionOnClean": 0.9736679217712015,
+    "projectionOnAccompaniment": 0.0879244358407472,
+    "truthNoteFramesRecognizedOnClean": 1170,
+    "thoseMissingAfterSeparation": 150,
+    "falseNoteFramesAfterSeparation": 2324,
+    "interpretation": "Linear projection and recognizer-frame observations only; not human listening or acoustic note adjudication. Negative control separately measures bleed with no guitar present."
+  }
+]

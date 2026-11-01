@@ -44,7 +44,8 @@ RUN apt-get update \
   && apt-get install --yes --no-install-recommends ca-certificates ffmpeg python3 python3-venv \
   && rm -rf /var/lib/apt/lists/*
 COPY scripts/setup-youtube.mjs ./scripts/setup-youtube.mjs
-RUN node scripts/setup-youtube.mjs
+COPY scripts/setup-separator.mjs scripts/separate-guitar.py scripts/separator-requirements.lock ./scripts/
+RUN node scripts/setup-youtube.mjs && node scripts/setup-separator.mjs
 COPY --from=node-builder /app/node_modules ./node_modules
 COPY --from=node-builder /app/dist ./dist
 COPY --from=node-builder /app/package.json ./package.json

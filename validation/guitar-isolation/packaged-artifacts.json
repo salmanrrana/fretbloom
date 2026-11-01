@@ -1,0 +1,24 @@
+{
+  "uid": 1000,
+  "files": {
+    "scripts/separate-guitar.py": "a279e98a996c1eb4a0c0ff31579acf5953e755547b0717fb11942379ffdd8c7b",
+    "scripts/separator-requirements.lock": "a1809e4d5f5dd7589b7c4516d39f514a9f25948734e2ccbec20eca14bf6876b3",
+    "scripts/setup-separator.mjs": "835df3edd21b95af445900541f67b9c2435b218123ef7b82f31e72b3ed11ffa6",
+    "server/analysisApi.ts": "75b601f475087e1ceeab3b491a7f5c478794b3fd3b923c9b7dae4c1b7837c804",
+    "target/release/fretbloom-backend": "c5b7f7b09247b5fbf3a7bf9d8f80b9d48ce9c723349828d44c3e608d27eaf5ab",
+    ".tools/separator/5c90dfd2-34c22ccb.th": "34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd",
+    "dist/bloom.svg": "bb0b470f4c56318a31ea6e7f79f5d8eb89e638a88178011419392e6c9b46f67e",
+    "dist/favicon.svg": "61bc9a161de58248288e6905425d7180f0624c2865007b97d763fdac12043a66",
+    "dist/garden.jpg": "12c7367e25206821172f5cd24d7fde4fe23b9e35c7cdd4a046e9e01b4e596e58",
+    "dist/icons.svg": "b45fa506195cfcdef406ba9f0c77b36ddc1a7c224040926ec70abc2fdea7b93a",
+    "dist/index.html": "488e24237f6f104827977dc05c62131b05a23f387141e09a5110e82f2954bb73",
+    "dist/assets/analysis.worker-Czzxpy6_.js": "88757cc7f225d560b22f95979839445309729044274eae3fe9cfdc6c9508acdb",
+    "dist/assets/capture.worklet-PLD5WieV.js": "f6b0b670e0a84227ff2638882f36510a26a64815b4169d98c2e2b3eaab6ae535",
+    "dist/assets/fretbloom_wasm_bg-RW7F2PnF.wasm": "0f247f41bc86b6da7bd59a87399af2483b14f6eb32d7b27443b8d38699d84d3b",
+    "dist/assets/index-Bly-Dzqb.js": "8408fd2b99076c959ac7ef2eec7a015edfe2ddb6051f9178062a0cc764f3afc9",
+    "dist/assets/index-DbddwVW_.css": "499c8bc9fd8faf7254a5ba69d20cf355a5a2808d725c70c0fbebdfcd412fd578",
+    "dist/assets/ingest.worker-D6P224Yy.js": "2c99ff6bd42db6dc99377c0e286e703b9e76b584b5692d28bf10a0145be851b3",
+    "dist/assets/pcmVerification.worker-B21zydcy.js": "7e62d55072ad061003e93c85ece22bd5a8cfded2e63aadb1848eab7fb93a0454"
+  },
+  "note": "Packaged helper, lock, setup, Node proxy and all dist files equal current local files. Container-native backend artifact hash is separately recorded; no model inference was repeated."
+}

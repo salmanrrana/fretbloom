@@ -1,0 +1,60 @@
+[
+  {
+    "command": [
+      "npm",
+      "run",
+      "check:fast"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 18.69971192599951,
+    "log": "validation/guitar-isolation/check-1.log"
+  },
+  {
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 4.77592286700019,
+    "log": "validation/guitar-isolation/check-2.log"
+  },
+  {
+    "command": [
+      "/home/xtra/.rustup/toolchains/1.89.0-x86_64-unknown-linux-gnu/bin/cargo",
+      "test",
+      "--release",
+      "-p",
+      "fretbloom-backend"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 5.4145270440003515,
+    "log": "validation/guitar-isolation/check-3.log"
+  },
+  {
+    "command": [
+      "/home/xtra/.rustup/toolchains/1.89.0-x86_64-unknown-linux-gnu/bin/cargo",
+      "build",
+      "--release",
+      "--workspace"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 0.06360828399920138,
+    "log": "validation/guitar-isolation/check-4.log"
+  },
+  {
+    "command": [
+      "/home/xtra/.rustup/toolchains/1.89.0-x86_64-unknown-linux-gnu/bin/cargo",
+      "clippy",
+      "-p",
+      "fretbloom-backend",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 0.11599464600112697,
+    "log": "validation/guitar-isolation/check-5.log"
+  }
+]

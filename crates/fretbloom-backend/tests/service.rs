@@ -606,7 +606,7 @@ async fn queue_timeout_fetch_cancellation_and_immediate_readmission() {
             .error
             .unwrap()
             .code,
-        "PROCESSING_TIMEOUT"
+        "QUEUE_FULL"
     );
     state.cancel(first.id).await.unwrap();
     tokio::time::timeout(Duration::from_secs(3), async {
