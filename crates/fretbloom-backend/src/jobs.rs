@@ -469,14 +469,13 @@ impl AppState {
         let worker_progress = progress.clone();
         let total = decoded.mono.len() as u64;
         let mut analysis = tokio::task::spawn_blocking(move || {
-            fretbloom_analysis::analyze(
+            analyze_song(
                 &decoded.mono,
                 decoded.sample_rate_hz,
                 &options,
                 &|| token.is_cancelled(),
-                &mut |p| {
-                    worker_progress
-                        .store(p.processed_samples, std::sync::atomic::Ordering::Relaxed);
+                &mut |processed| {
+                    worker_progress.store(processed, std::sync::atomic::Ordering::Relaxed);
                 },
             )
         });
@@ -500,9 +499,9 @@ impl AppState {
             fretbloom_analysis::HarmonyKind::NoChord { .. } => false,
         });
         if excess_alternatives
-            || output.result.harmony.len() > 3000
-            || output.result.monophonic_notes.len() > 4000
-            || output.result.polyphonic_notes.len() > 4000
+            || output.result.harmony.len() > 18000
+            || output.result.monophonic_notes.len() > 24000
+            || output.result.polyphonic_notes.len() > 24000
             || output.features.frames.len() > 7500
         {
             return Err(BackendError::new("RESULT_TOO_COMPLEX"));
@@ -510,7 +509,7 @@ impl AppState {
         let result=serde_json::to_vec(&serde_json::json!({"schemaVersion":1,"jobId":id,"source":job.source,"title":title,"pcmSha256":decoded.pcm_sha256,"analysis":output.result})).map_err(|_|BackendError::new("RESULT_TOO_COMPLEX"))?;
         let features = serde_json::to_vec(&output.features)
             .map_err(|_| BackendError::new("RESULT_TOO_COMPLEX"))?;
-        if result.len() > 1024 * 1024 || features.len() > 8 * 1024 * 1024 {
+        if result.len() > 8 * 1024 * 1024 || features.len() > 8 * 1024 * 1024 {
             return Err(BackendError::new("RESULT_TOO_COMPLEX"));
         }
         let mut inner = self.inner.lock().await;
@@ -573,5 +572,118 @@ async fn stop_analysis(
     {
         tracing::error!("analysis worker ignored cancellation; terminating private service");
         std::process::exit(1);
+    }
+}
+
+/// Analyze bounded song sections so a long recording cannot exhaust the per-call
+/// live-engine event budget. Preserve absolute playback times in the joined result.
+fn analyze_song(
+    mono: &[f32],
+    rate: u32,
+    options: &AnalysisOptions,
+    cancelled: &(dyn Fn() -> bool + Sync),
+    progress: &mut dyn FnMut(u64),
+) -> Result<fretbloom_analysis::AnalysisOutput, AnalysisError> {
+    let mut joined: Option<fretbloom_analysis::AnalysisOutput> = None;
+    let chunk_samples = rate as usize * 30;
+    for (index, chunk) in mono.chunks(chunk_samples).enumerate() {
+        let offset_samples = index * chunk_samples;
+        let offset = offset_samples as f64 / rate as f64;
+        let mut next = fretbloom_analysis::analyze(chunk, rate, options, cancelled, &mut |p| {
+            progress(offset_samples as u64 + p.processed_samples)
+        })?;
+        for event in &mut next.result.harmony {
+            event.start += offset;
+            event.end += offset;
+        }
+        for event in next
+            .result
+            .monophonic_notes
+            .iter_mut()
+            .chain(next.result.polyphonic_notes.iter_mut())
+        {
+            event.start += offset;
+            event.end += offset;
+        }
+        for frame in &mut next.features.frames {
+            frame.time += offset;
+        }
+        if let Some(output) = &mut joined {
+            output.result.harmony.extend(next.result.harmony);
+            output
+                .result
+                .monophonic_notes
+                .extend(next.result.monophonic_notes);
+            output
+                .result
+                .polyphonic_notes
+                .extend(next.result.polyphonic_notes);
+            let last = output.features.frames.last().map_or(-1.0, |f| f.time);
+            output
+                .features
+                .frames
+                .extend(next.features.frames.into_iter().filter(|f| f.time > last));
+            for warning in next.result.warnings {
+                if !output
+                    .result
+                    .warnings
+                    .iter()
+                    .any(|existing| existing.code == warning.code)
+                {
+                    output.result.warnings.push(warning);
+                }
+            }
+        } else {
+            joined = Some(next);
+        }
+    }
+    let mut output = joined.ok_or_else(|| AnalysisError::InvalidInput("PCM is empty".into()))?;
+    output.result.duration = mono.len() as f64 / rate as f64;
+    output.features.duration = output.result.duration;
+    Ok(output)
+}
+
+#[cfg(test)]
+mod song_length_tests {
+    use super::*;
+    #[test]
+    fn six_minute_song_keeps_absolute_times_and_complete_features() {
+        let rate = 24_000;
+        let pcm: Vec<f32> = (0..360 * rate)
+            .map(|i| {
+                let t = i as f64 / rate as f64;
+                let envelope = (-8.0 * (t % 0.5)).exp();
+                [164.8138, 207.6523, 246.9417]
+                    .iter()
+                    .map(|f| (std::f64::consts::TAU * f * t).sin() * 0.07 * envelope)
+                    .sum::<f64>() as f32
+            })
+            .collect();
+        let mut processed = 0;
+        let output = analyze_song(
+            &pcm,
+            rate,
+            &AnalysisOptions::default(),
+            &|| false,
+            &mut |p| processed = p,
+        )
+        .unwrap();
+        assert_eq!(output.result.duration, 360.0);
+        assert_eq!(output.features.duration, 360.0);
+        assert_eq!(processed, pcm.len() as u64);
+        assert_eq!(output.result.harmony.first().unwrap().start, 0.0);
+        assert_eq!(output.result.harmony.last().unwrap().end, 360.0);
+        assert!(output
+            .result
+            .harmony
+            .windows(2)
+            .all(|p| (p[0].end - p[1].start).abs() < 1e-6));
+        assert!(output
+            .features
+            .frames
+            .windows(2)
+            .all(|p| p[0].time < p[1].time));
+        assert!(output.features.frames.len() <= 7500);
+        assert!(serde_json::to_vec(&output.result).unwrap().len() < 8 * 1024 * 1024);
     }
 }

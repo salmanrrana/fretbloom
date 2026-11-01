@@ -255,7 +255,7 @@ export function createAnalysisMiddleware(options: Options = {}) {
           : artifact === 'features'
             ? 8 * 1024 * 1024
             : artifact === 'result'
-              ? 1024 * 1024
+              ? 8 * 1024 * 1024
               : 16 * 1024
       if (Number(incoming.headers['content-length'] ?? 0) > responseCap) {
         incoming.destroy()

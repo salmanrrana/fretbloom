@@ -166,3 +166,17 @@ HEAD/Range/DELETE all passed in 0.615 s total; result 1,213 bytes, features 489
 bytes, audio 12,044 bytes, Range 206, post-cancel result 409. Rust shut down with
 exit 0; Node was terminated by the test supervisor's SIGTERM. This did not exercise
 React, persisted Songbook, production, or a live database.
+
+## Long song results
+
+Server uploads and YouTube analysis process recordings in 30-second sections,
+then join chords, notes, and features using absolute recording timestamps.
+This avoids applying the browser engine's per-call event budget to an entire
+song. Section boundaries can split sustained events and reset tuning evidence;
+this is a length-handling change, not a recognition accuracy improvement.
+The existing 600-second duration, upload, concurrency, and processing deadlines
+remain enforced. Joined results allow 18,000 harmony events, 24,000 notes per
+stream, and an 8 MiB result envelope; features retain their 8 MiB cap.
+The Node gateway and client validate the same expanded result limits.
+A generated 360-second plucked chord test verifies full harmony coverage,
+absolute timestamps, ordered features, and completed sample progress.

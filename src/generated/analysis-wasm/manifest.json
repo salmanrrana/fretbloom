@@ -25,7 +25,7 @@
     "profile": "release",
     "bindgenTarget": "web"
   },
-  "sourceHash": "936a656941a8a55f5573418c817a9be241999321edc7757b118b2d591df4112d",
+  "sourceHash": "406eb7bb20d5f86129f668b7d6dc9737f3db70f70cd3a6098a4fcd146344a168",
   "sources": {
     "Cargo.lock": "a434501a9265de80384674612efd5004069939425966a94b87cf8fd70e7fa682",
     "Cargo.toml": "fa1036a961ff6d1adf45139b0dc19cfa87c7ab161188989b9bf0925f39839fbc",
@@ -59,7 +59,7 @@
     "scripts/wasm-portable-metadata.mjs": "9e3c77e5ccb1f04be2ba1fad8129b330b52c4d57a4fe85562878142d474a8308",
     "scripts/wasm-portable-types.mjs": "ac8bb77329abb0558b4d7fb225a1d5dc18fc0b3e50bf825290021a2b1555d302",
     "scripts/wasm-verify.mjs": "6ce517696e251dcb13ca526718f6266d4c8fd2c56bfcc6c4de10717155cd8d32",
-    "src/audio/analysisV1.ts": "de8b896704f39155968dd4c4b7c2fb54c536a16ea6758d8e543f4ab498c4449a",
+    "src/audio/analysisV1.ts": "77e8c822f62d1a21d7ed497f19cddc325b78b0645006e593994ccc1110ff3006",
     "src/audio/live/analysis.worker.drain.test.ts": "ac30c3e317761645a97471e10684cb0a2c992f467f240caee392e03c063ef232",
     "src/audio/live/analysis.worker.test.ts": "824deed637c929942220a845ed64988767cc6cae738c260dd084334909238036",
     "src/audio/live/analysis.worker.ts": "0071b15a092c3b5693f3989329df669c4f6bc9a3e633e73159751f6e58669ceb",

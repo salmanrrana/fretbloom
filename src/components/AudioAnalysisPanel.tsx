@@ -285,8 +285,7 @@ export function AudioAnalysisPanel(props: AudioAnalysisProps) {
       )}
       {status.kind === 'error' && (
         <p role="alert" className="songbook-warn">
-          {status.message} Full analysis requires the Rust backend; it is never
-          replaced silently by browser estimates.
+          {status.message}
         </p>
       )}
       {status.kind === 'canceled' && <p role="status">Analysis canceled.</p>}

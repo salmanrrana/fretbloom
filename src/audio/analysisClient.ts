@@ -161,7 +161,7 @@ export function getAnalysisResult(id: string, signal: AbortSignal) {
     parseResultEnvelope,
     signal,
     undefined,
-    1024 * 1024,
+    8 * 1024 * 1024,
   )
 }
 export function getAnalysisFeatures(id: string, signal: AbortSignal) {

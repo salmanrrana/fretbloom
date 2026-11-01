@@ -105,7 +105,7 @@ test('bounds note arrays, cents and mode separation', () => {
   expect(() =>
     parseAnalysisResult({
       ...analysis(),
-      monophonicNotes: Array(4001).fill(note),
+      monophonicNotes: Array(24001).fill(note),
     }),
   ).toThrow()
   expect(() =>
@@ -207,5 +207,27 @@ test('source, UUID, UTC expiry and hash are checked', () => {
   expect(parseJob(job)).toEqual(job)
   expect(() =>
     parseJob({ ...job, progress: { stage: 'queued', fraction: '0' } }),
+  ).toThrow()
+})
+
+test('accepts long server song results above the former live note budget', () => {
+  const note = {
+    start: 0,
+    end: 0.1,
+    midi: 64,
+    name: 'E4',
+    cents: 0,
+    evidence: { score: 0.8, margin: 0.3, level: 'medium' },
+  }
+  const value = {
+    ...analysis(),
+    monophonicNotes: Array.from({ length: 4001 }, () => ({ ...note })),
+  }
+  expect(parseAnalysisResult(value).monophonicNotes).toHaveLength(4001)
+  expect(() =>
+    parseAnalysisResult({
+      ...value,
+      monophonicNotes: Array.from({ length: 24001 }, () => note),
+    }),
   ).toThrow()
 })

@@ -372,7 +372,7 @@ export function parseAnalysisResult(value: unknown): AnalysisResult {
   const v = object(value),
     t = object(v.tuning),
     duration = number(v.duration, 1 / 24000, 600)
-  const events = array(v.harmony, 3000, (e) => harmony(e, duration))
+  const events = array(v.harmony, 18000, (e) => harmony(e, duration))
   // Empty silent streams are allowed by v1; nonempty harmony must cover the timeline.
   let end = 0
   for (const event of events) {
@@ -383,7 +383,7 @@ export function parseAnalysisResult(value: unknown): AnalysisResult {
   if (events.length && Math.abs(end - duration) > 1e-6)
     throw new AnalysisValidationError('harmony duration')
   const notes = (value: unknown) =>
-    array(value, 4000, (value): NoteEvent => {
+    array(value, 24000, (value): NoteEvent => {
       const n = object(value)
       return {
         ...span(n, duration),
